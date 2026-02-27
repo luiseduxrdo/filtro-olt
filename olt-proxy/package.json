@@ -1,0 +1,12 @@
+{
+  "name": "olt-proxy",
+  "version": "1.0.0",
+  "description": "Proxy local para comunicação com Ada (resolve CORS)",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

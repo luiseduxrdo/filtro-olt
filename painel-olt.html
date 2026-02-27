@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OLT Monitor — Filtragem GPON</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        background: #0e1117;
+        color: #c8d0e0;
+        font-family: 'Courier New', monospace;
+        min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+        background: #141923;
+        border-bottom: 1px solid #22304a;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .app-header .badge {
+        background: #00c47a;
+        color: #000;
+        font-size: 10px;
+        padding: 3px 10px;
+        border-radius: 2px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        font-family: monospace;
+    }
+    .app-header h1 {
+        font-size: 15px;
+        color: #fff;
+        font-family: sans-serif;
+        font-weight: 600;
+        flex: 1;
+    }
+    .app-header .version {
+        font-size: 10px;
+        color: #3a4565;
+        font-family: monospace;
+    }
+
+    /* ── CONTAINER ── */
+    .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 20px 24px;
+    }
+
+    /* ── PROXY CONFIG ── */
+    .proxy-config {
+        background: #141923;
+        border: 1px solid #22304a;
+        border-radius: 4px;
+        padding: 14px 18px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .proxy-config label {
+        font-size: 10px;
+        color: #5a6480;
+        letter-spacing: 1.5px;
+        white-space: nowrap;
+    }
+    .proxy-input {
+        flex: 1;
+        min-width: 200px;
+        background: #0e1117;
+        border: 1px solid #252b3b;
+        color: #8ba0c0;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        padding: 7px 12px;
+        border-radius: 3px;
+        outline: none;
+    }
+    .proxy-input:focus { border-color: #00c47a; }
+    .proxy-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-family: sans-serif;
+    }
+    .proxy-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #3a4565;
+    }
+    .proxy-dot.ok { background: #00c47a; box-shadow: 0 0 6px #00c47a; }
+    .proxy-dot.err { background: #ff4d6d; box-shadow: 0 0 6px #ff4d6d; }
+
+    /* ── BOTOES ── */
+    .btn {
+        font-family: sans-serif;
+        font-weight: 600;
+        font-size: 12px;
+        border: none;
+        cursor: pointer;
+        border-radius: 3px;
+        padding: 8px 18px;
+        transition: all 0.15s;
+    }
+    .btn-primary { background: #00c47a; color: #000; }
+    .btn-primary:hover { background: #00e58d; }
+    .btn-primary:disabled { background: #1a4a35; color: #3a6a55; cursor: not-allowed; }
+    .btn-secondary { background: #1a1f2e; color: #c8d0e0; border: 1px solid #252b3b; }
+    .btn-secondary:hover { border-color: #00c47a; color: #00c47a; }
+    .btn-sm { font-size: 11px; padding: 6px 14px; }
+    .btn-test { background: #1a1f2e; color: #8ba0c0; border: 1px solid #252b3b; font-size: 11px; padding: 6px 14px; }
+    .btn-test:hover { border-color: #00c47a; color: #00c47a; }
+
+    /* ── GRID TEXTAREAS ── */
+    .input-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    @media (max-width: 640px) { .input-grid { grid-template-columns: 1fr; } }
+
+    .input-block {
+        background: #13161e;
+        border: 1px solid #252b3b;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .input-label {
+        background: #1a1f2e;
+        padding: 7px 12px;
+        font-size: 10px;
+        color: #00c47a;
+        letter-spacing: 1.5px;
+        border-bottom: 1px solid #252b3b;
+    }
+    .input-label span { color: #3a4565; font-size: 9px; margin-left: 8px; }
+    .textarea {
+        width: 100%;
+        height: 140px;
+        background: #13161e;
+        border: none;
+        color: #8ba0c0;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        padding: 8px 12px;
+        resize: vertical;
+        outline: none;
+    }
+    .textarea:focus { background: #161b27; }
+    .textarea::placeholder { color: #3a4565; }
+
+    /* ── ACTIONS ── */
+    .actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .stats {
+        display: flex;
+        gap: 16px;
+        margin-left: auto;
+        font-size: 11px;
+        align-items: center;
+    }
+    .stat { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-red { background: #ff4d6d; box-shadow: 0 0 5px #ff4d6d; }
+    .dot-green { background: #00c47a; box-shadow: 0 0 5px #00c47a; }
+
+    /* ── PROGRESS ── */
+    .progress {
+        background: #1a1f2e;
+        border: 1px solid #252b3b;
+        border-radius: 3px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #00c47a;
+        margin-bottom: 10px;
+        display: none;
+    }
+    .progress-bar { height: 3px; background: #252b3b; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00c47a; width: 0%; transition: width 0.3s; }
+
+    /* ── ALERT ── */
+    .alert {
+        background: rgba(255,183,3,0.1);
+        border: 1px solid rgba(255,183,3,0.3);
+        border-radius: 3px;
+        padding: 8px 12px;
+        font-size: 11px;
+        color: #ffb703;
+        margin-bottom: 10px;
+        display: none;
+    }
+
+    /* ── TABELA ── */
+    .results-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .results-title { font-size: 11px; color: #5a6480; letter-spacing: 1px; }
+    .badge-count { background: #ff4d6d; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 2px; }
+
+    .export-bar { display: flex; gap: 6px; margin-left: auto; }
+    .btn-export {
+        background: transparent;
+        color: #00c47a;
+        border: 1px solid #00c47a;
+        font-size: 11px;
+        padding: 6px 14px;
+        font-family: sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.15s;
+    }
+    .btn-export:hover { background: #00c47a; color: #000; }
+
+    .table-wrap {
+        background: #13161e;
+        border: 1px solid #252b3b;
+        border-radius: 3px;
+        overflow: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead tr { background: #1a1f2e; border-bottom: 2px solid #252b3b; }
+    th { padding: 8px 10px; text-align: left; font-size: 10px; color: #5a6480; letter-spacing: 1.2px; font-weight: 400; }
+    tbody tr { border-bottom: 1px solid #1a1f2e; }
+    tbody tr:hover { background: #141923; }
+    td { padding: 8px 10px; vertical-align: middle; }
+
+    .td-onu { color: #3a4565; font-size: 11px; }
+    .td-contrato { color: #00c47a; font-weight: bold; font-size: 13px; }
+    .td-nome { color: #fff; font-family: sans-serif; }
+    .td-end { font-size: 11px; font-family: sans-serif; line-height: 1.4; }
+    .td-loading { color: #3a4565; font-size: 11px; font-style: italic; }
+    .td-ok { color: #c8d0e0; }
+    .td-erro { color: #ff4d6d; }
+
+    .pill { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 2px; letter-spacing: 0.8px; white-space: nowrap; }
+    .pill-dgi { background: rgba(255,77,109,0.15); color: #ff4d6d; border: 1px solid rgba(255,77,109,0.3); }
+    .pill-loami { background: rgba(255,183,3,0.15); color: #ffb703; border: 1px solid rgba(255,183,3,0.3); }
+    .pill-inact { background: rgba(90,100,128,0.15); color: #5a6480; border: 1px solid #252b3b; }
+
+    .copy-btn {
+        background: #1a1f2e;
+        color: #5a6480;
+        border: 1px solid #252b3b;
+        padding: 3px 10px;
+        font-size: 10px;
+        cursor: pointer;
+        border-radius: 2px;
+        font-family: monospace;
+        transition: all 0.12s;
+        white-space: nowrap;
+    }
+    .copy-btn:hover { color: #00c47a; border-color: #00c47a; }
+    .copy-btn.ok { color: #00c47a; border-color: #00c47a; }
+
+    .empty { text-align: center; padding: 30px; color: #3a4565; font-size: 13px; }
+
+    /* ── LOG ── */
+    .log-panel { margin-top: 14px; display: none; }
+    .log-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+    .log-title { font-size: 10px; color: #5a6480; letter-spacing: 1px; }
+    .log-btn {
+        background: #1a1f2e;
+        border: 1px solid #252b3b;
+        color: #5a6480;
+        font-size: 10px;
+        padding: 2px 10px;
+        cursor: pointer;
+        border-radius: 2px;
+        font-family: monospace;
+    }
+    .log-btn:hover { color: #00c47a; border-color: #00c47a; }
+    .log-content {
+        background: #080b10;
+        border: 1px solid #1a1f2e;
+        border-radius: 3px;
+        padding: 8px 12px;
+        height: 160px;
+        overflow-y: auto;
+        font-family: monospace;
+    }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+    <div class="badge">OLT</div>
+    <h1>Monitor GPON — Filtragem Automatica</h1>
+    <span class="version">v2.0 web</span>
+</header>
+
+<div class="container">
+
+    <!-- PROXY CONFIG -->
+    <div class="proxy-config">
+        <label>PROXY URL</label>
+        <input type="text" class="proxy-input" id="proxy-url" placeholder="http://localhost:8080">
+        <button class="btn btn-test" id="btn-test-proxy">Testar conexao</button>
+        <div class="proxy-status">
+            <div class="proxy-dot" id="proxy-dot"></div>
+            <span id="proxy-status-text" style="color:#5a6480">sem teste</span>
+        </div>
+    </div>
+
+    <!-- TEXTAREAS -->
+    <div class="input-grid">
+        <div class="input-block">
+            <div class="input-label">ONU STATUS <span>onu status gpon X</span></div>
+            <textarea class="textarea" id="olt-status" placeholder="Cole aqui o output do comando: onu status gpon X"></textarea>
+        </div>
+        <div class="input-block">
+            <div class="input-label">ONU DESCRIPTION <span>onu description show gpon X</span></div>
+            <textarea class="textarea" id="olt-desc" placeholder="Cole aqui o output do comando: onu description show gpon X"></textarea>
+        </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+        <button class="btn btn-primary" id="btn-processar">PROCESSAR E BUSCAR NO ADA</button>
+        <button class="btn btn-secondary" id="btn-limpar">Limpar</button>
+        <div class="stats" id="stats" style="display:none">
+            <div class="stat"><div class="dot dot-red"></div><span id="cnt-inativos">0 inativos</span></div>
+            <div class="stat"><div class="dot dot-green"></div><span id="cnt-ativos">0 ativos</span></div>
+        </div>
+    </div>
+
+    <!-- ALERT -->
+    <div class="alert" id="alert"></div>
+
+    <!-- PROGRESS -->
+    <div class="progress" id="progress">
+        <span id="progress-txt">Buscando dados no Ada...</span>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="result-area">
+        <div class="empty">Cole os dados do PuTTY e clique em PROCESSAR</div>
+    </div>
+
+    <!-- LOG -->
+    <div class="log-panel" id="log-panel">
+        <div class="log-header">
+            <div class="log-title">LOG DE DIAGNOSTICO</div>
+            <button class="log-btn" id="btn-log-limpar">limpar</button>
+            <button class="log-btn" id="btn-log-copiar">copiar log</button>
+        </div>
+        <div class="log-content" id="log-content"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── PROXY URL (localStorage) ──
+    const proxyInput = document.getElementById('proxy-url');
+    const saved = localStorage.getItem('olt-proxy-url');
+    proxyInput.value = saved || window.location.origin;
+
+    function getProxyUrl() {
+        const url = proxyInput.value.trim().replace(/\/+$/, '');
+        localStorage.setItem('olt-proxy-url', url);
+        return url;
+    }
+
+    // ── TESTAR CONEXAO ──
+    document.getElementById('btn-test-proxy').addEventListener('click', async () => {
+        const url = getProxyUrl();
+        const dot = document.getElementById('proxy-dot');
+        const txt = document.getElementById('proxy-status-text');
+
+        if (!url) {
+            dot.className = 'proxy-dot err';
+            txt.textContent = 'URL vazia';
+            txt.style.color = '#ff4d6d';
+            return;
+        }
+
+        dot.className = 'proxy-dot';
+        txt.textContent = 'testando...';
+        txt.style.color = '#5a6480';
+
+        try {
+            const res = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                dot.className = 'proxy-dot ok';
+                txt.textContent = 'conectado';
+                txt.style.color = '#00c47a';
+            } else {
+                throw new Error('status != ok');
+            }
+        } catch (e) {
+            dot.className = 'proxy-dot err';
+            txt.textContent = 'sem conexao';
+            txt.style.color = '#ff4d6d';
+        }
+    });
+
+    // ── LOG ──
+    const logs = [];
+
+    function log(tipo, msg, obj) {
+        const ts = new Date().toLocaleTimeString('pt-BR');
+        const linha = `[${ts}] [${tipo}] ${msg}`;
+        logs.push({ tipo, linha, obj });
+
+        if (tipo === 'ERR') console.error(linha, obj || '');
+        else if (tipo === 'WARN') console.warn(linha, obj || '');
+        else console.log(linha, obj || '');
+
+        const el = document.getElementById('log-content');
+        const cores = { OK: '#00c47a', INFO: '#8ba0c0', WARN: '#ffb703', ERR: '#ff4d6d' };
+        const div = document.createElement('div');
+        div.style.cssText = `color:${cores[tipo] || '#8ba0c0'};font-size:11px;line-height:1.5;border-bottom:1px solid #1a1f2e;padding:3px 0;`;
+        div.textContent = linha;
+        if (obj !== undefined) {
+            try { div.textContent += ' ' + JSON.stringify(obj).substring(0, 300); } catch (e) {}
+        }
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    document.getElementById('btn-log-limpar').addEventListener('click', () => {
+        document.getElementById('log-content').innerHTML = '';
+        logs.length = 0;
+    });
+
+    document.getElementById('btn-log-copiar').addEventListener('click', () => {
+        const txt = logs.map(l => l.linha).join('\n');
+        navigator.clipboard.writeText(txt).then(() => {
+            const btn = document.getElementById('btn-log-copiar');
+            const orig = btn.textContent;
+            btn.textContent = 'copiado!';
+            setTimeout(() => btn.textContent = orig, 1500);
+        });
+    });
+
+    // ── PARSING ──
+    function parseStatus(texto) {
+        const onus = {};
+        for (const linha of texto.split('\n')) {
+            const m = linha.match(/^\s*(\d+)\s+([0-9A-Fa-f]{8})\s+(Active|Inactive)\s+(.*)$/);
+            if (!m) continue;
+            const num = m[1], serial = m[2], status = m[3];
+            const mMotivo = linha.match(/(DGI|LOAMI[\w+]*|LOFI[\w+]*|LOSI[\w+]*)/);
+            onus[num] = {
+                num, serial, operStatus: status,
+                motivo: mMotivo ? mMotivo[0] : (status === 'Inactive' ? 'Inactive' : '')
+            };
+        }
+        return onus;
+    }
+
+    function parseDesc(texto) {
+        const descs = {};
+        for (const linha of texto.split('\n')) {
+            const m = linha.match(/gpon\s+\d+\s+onu\s+(\d+)\s+(.+)/i);
+            if (!m) continue;
+            const num = m[1], descricao = m[2].trim();
+            const mContrato = descricao.match(/_(\d{4})/);
+            const contrato = mContrato ? mContrato[1] : null;
+            const nome = descricao.replace(/^[^_]*_/, '').replace(/^\d+/, '').replace(/^_?/, '').trim() || descricao;
+            descs[num] = { descricao, contrato, nome };
+        }
+        return descs;
+    }
+
+    function pillHtml(motivo) {
+        if (motivo.includes('DGI')) return '<span class="pill pill-dgi">DGI</span>';
+        if (/LOAMI|LOFI|LOSI/.test(motivo)) return `<span class="pill pill-loami">${motivo}</span>`;
+        return '<span class="pill pill-inact">INACTIVE</span>';
+    }
+
+    // ── API ADA (VIA PROXY) ──
+    async function buscarIdCliente(contrato) {
+        const proxy = getProxyUrl();
+        const params = new URLSearchParams({ sSearch: contrato });
+
+        log('INFO', `[gateway] buscando contrato "${contrato}" via proxy...`);
+
+        try {
+            const res = await fetch(`${proxy}/clientes?${params}`);
+            const json = await res.json();
+
+            log('INFO', `[gateway] contrato buscado: "${contrato}" -> total retornado: ${json.aaData ? json.aaData.length : 0} linha(s)`);
+
+            if (json.aaData && json.aaData.length > 0) {
+                let idCliente = null, nomeAda = null, cpf = null;
+
+                for (const row of json.aaData) {
+                    const contratoRow = String(row[0]).trim();
+                    const contratoNorm = String(contrato).trim();
+                    const bateu = contratoRow === contratoNorm;
+
+                    log('INFO', `  linha: contrato="${contratoRow}" vs "${contratoNorm}" -> ${bateu ? 'MATCH' : 'nao bateu'}`);
+
+                    if (bateu) {
+                        nomeAda = row[1];
+                        cpf = row[2];
+                        const mId = String(row[5]).match(/data-id="(\d+)"/i);
+                        if (mId) {
+                            idCliente = mId[1];
+                            log('OK', `[gateway] IdCliente=${idCliente} | Nome=${nomeAda}`);
+                        } else {
+                            log('WARN', `[gateway] contrato bateu mas data-id nao encontrado no HTML: ${String(row[5]).substring(0, 150)}`);
+                        }
+                        break;
+                    }
+                }
+
+                if (!idCliente && !nomeAda) {
+                    log('WARN', `[gateway] nenhuma linha bateu com "${contrato}"`);
+                    for (const row of json.aaData) {
+                        const nome = String(row[1] || '');
+                        const cpfR = String(row[2] || '');
+                        const grupo = String(row[4] || '');
+                        const apareceu = [nome, cpfR, grupo].filter(v => v.includes(contrato));
+                        if (apareceu.length) {
+                            log('INFO', `  falso positivo -> contrato=${String(row[0]).trim()} | "${contrato}" encontrado em: ${apareceu.join(' | ')}`);
+                        }
+                    }
+                }
+
+                return { idCliente, nomeAda, cpf };
+            }
+
+            log('WARN', `[gateway] resposta vazia para contrato "${contrato}"`);
+            return { idCliente: null, nomeAda: null, cpf: null };
+        } catch (e) {
+            log('ERR', `[gateway] falha: ${e.message}`);
+            return { idCliente: null, nomeAda: null, cpf: null };
+        }
+    }
+
+    async function buscarDadosCliente(idCliente) {
+        const proxy = getProxyUrl();
+
+        try {
+            const res = await fetch(`${proxy}/cadastro`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `call=carregarClienteAction&IdCliente=${encodeURIComponent(idCliente)}`
+            });
+            const r = await res.json();
+
+            log('INFO', `[cadastro] resposta para IdCliente=${idCliente}:`, r);
+
+            if (!r) {
+                log('WARN', `[cadastro] resposta nula para IdCliente=${idCliente}`);
+                return {};
+            }
+
+            const partes = [r.EnderecoInst, r.NumeroInst, r.BairroInst, r.CidadeInst].filter(Boolean);
+            const enderecoCompleto = partes.join(', ');
+
+            if (!enderecoCompleto) {
+                log('WARN', `[cadastro] IdCliente=${idCliente} — todos os campos de endereco vazios`);
+            } else {
+                log('OK', `[cadastro] endereco montado: "${enderecoCompleto}"`);
+            }
+
+            return {
+                endereco: enderecoCompleto || '-',
+                bairro: r.BairroInst || '',
+                cidade: r.CidadeInst || '',
+                pontoRef: r.PontoRefInst || '',
+                grupo: r.GrupoAutenticacao || '',
+                bloqueado: r.GrupoAutenticacao && r.GrupoAutenticacao.toUpperCase().includes('BLOQUEADO')
+            };
+        } catch (e) {
+            log('ERR', `[cadastro] falha para IdCliente=${idCliente}: ${e.message}`);
+            return {};
+        }
+    }
+
+    // ── RESULTADOS ──
+    let resultados = [];
+
+    function renderTabela() {
+        const area = document.getElementById('result-area');
+        if (resultados.length === 0) {
+            area.innerHTML = '<div class="empty">Nenhuma ONU inativa encontrada.</div>';
+            return;
+        }
+
+        const rows = resultados.map((r, i) => `
+            <tr id="row-${i}">
+                <td class="td-onu">ONU ${esc(r.num)}</td>
+                <td>${pillHtml(r.motivo)}</td>
+                <td class="td-contrato">${esc(r.contrato) || '—'}</td>
+                <td class="td-nome">${esc(r.nomeAda || r.nome) || '—'}</td>
+                <td class="td-end td-loading" id="end-${i}">buscando...</td>
+                <td>
+                    ${r.contrato ? `<button class="copy-btn" data-copy="${esc(r.contrato)}">${esc(r.contrato)}</button>` : '—'}
+                </td>
+            </tr>
+        `).join('');
+
+        area.innerHTML = `
+            <div class="results-header">
+                <div class="results-title">ONUs INATIVAS</div>
+                <div class="badge-count">${resultados.length} clientes</div>
+                <div class="export-bar">
+                    <button class="btn-export" id="btn-csv">CSV</button>
+                    <button class="btn-export" id="btn-pdf" style="color:#ffb703;border-color:#ffb703">PDF</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr>
+                        <th>ONU</th><th>STATUS</th><th>CONTRATO</th>
+                        <th>NOME</th><th>ENDERECO</th><th></th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('btn-csv').addEventListener('click', exportarCSV);
+        document.getElementById('btn-pdf').addEventListener('click', exportarPDF);
+
+        area.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => copiar(btn.dataset.copy, btn));
+        });
+    }
+
+    function atualizarLinha(i, dados) {
+        const el = document.getElementById(`end-${i}`);
+        if (!el) return;
+
+        if (dados.endereco && dados.endereco !== '-') {
+            const bloq = dados.bloqueado ? ' style="border-left:3px solid #ff4d6d;padding-left:6px"' : '';
+            const ref = dados.pontoRef ? `<br><small style="color:#3a4565">Ref: ${esc(dados.pontoRef)}</small>` : '';
+            el.className = 'td-end td-ok';
+            el.innerHTML = `<span${bloq}>${esc(dados.endereco)}${ref}</span>`;
+            resultados[i].enderecoFinal = dados.endereco;
+            resultados[i].bairroFinal = dados.bairro || '';
+            resultados[i].pontoRef = dados.pontoRef;
+        } else {
+            el.className = 'td-end td-erro';
+            el.textContent = 'nao encontrado';
+        }
+    }
+
+    // ── PROCESSAR ──
+    document.getElementById('btn-processar').addEventListener('click', async () => {
+        const textoStatus = document.getElementById('olt-status').value.trim();
+        const textoDesc = document.getElementById('olt-desc').value.trim();
+
+        if (!textoStatus || !textoDesc) {
+            mostrarAlerta('Cole os dois outputs do PuTTY antes de processar.');
+            return;
+        }
+
+        const proxy = getProxyUrl();
+        if (!proxy) {
+            mostrarAlerta('Configure a URL do proxy antes de processar.');
+            return;
+        }
+
+        esconderAlerta();
+        document.getElementById('log-panel').style.display = 'block';
+
+        const statusMap = parseStatus(textoStatus);
+        const descMap = parseDesc(textoDesc);
+
+        const inativos = Object.values(statusMap).filter(o => o.operStatus === 'Inactive');
+        const ativos = Object.values(statusMap).filter(o => o.operStatus === 'Active');
+
+        document.getElementById('cnt-inativos').textContent = `${inativos.length} inativos`;
+        document.getElementById('cnt-ativos').textContent = `${ativos.length} ativos`;
+        document.getElementById('stats').style.display = 'flex';
+
+        resultados = inativos.map(onu => {
+            const desc = descMap[onu.num] || {};
+            return { ...onu, ...desc, nomeAda: null, enderecoFinal: '', bairroFinal: '', pontoRef: '' };
+        });
+
+        renderTabela();
+
+        if (resultados.length === 0) return;
+
+        const progEl = document.getElementById('progress');
+        const progTxt = document.getElementById('progress-txt');
+        const progFill = document.getElementById('progress-fill');
+        progEl.style.display = 'block';
+
+        const btn = document.getElementById('btn-processar');
+        btn.disabled = true;
+
+        for (let i = 0; i < resultados.length; i++) {
+            const r = resultados[i];
+            const pct = Math.round(((i + 1) / resultados.length) * 100);
+            progTxt.textContent = `Buscando no Ada: contrato ${r.contrato || '—'} (${i + 1}/${resultados.length})`;
+            progFill.style.width = pct + '%';
+
+            if (!r.contrato) {
+                atualizarLinha(i, {});
+                continue;
+            }
+
+            try {
+                const { idCliente, nomeAda } = await buscarIdCliente(r.contrato);
+                if (nomeAda) resultados[i].nomeAda = nomeAda;
+
+                const nomeEl = document.querySelector(`#row-${i} .td-nome`);
+                if (nomeEl && nomeAda) nomeEl.textContent = nomeAda;
+
+                if (idCliente) {
+                    resultados[i].idCliente = idCliente;
+                    const dados = await buscarDadosCliente(idCliente);
+                    atualizarLinha(i, dados);
+                } else {
+                    atualizarLinha(i, { endereco: 'contrato nao encontrado' });
+                }
+            } catch (e) {
+                atualizarLinha(i, { endereco: 'erro' });
+            }
+
+            await new Promise(res => setTimeout(res, 150));
+        }
+
+        progTxt.textContent = 'Concluido!';
+        setTimeout(() => { progEl.style.display = 'none'; }, 2000);
+        btn.disabled = false;
+    });
+
+    // ── LIMPAR ──
+    document.getElementById('btn-limpar').addEventListener('click', () => {
+        document.getElementById('olt-status').value = '';
+        document.getElementById('olt-desc').value = '';
+        document.getElementById('stats').style.display = 'none';
+        document.getElementById('progress').style.display = 'none';
+        document.getElementById('log-panel').style.display = 'none';
+        document.getElementById('log-content').innerHTML = '';
+        logs.length = 0;
+        document.getElementById('result-area').innerHTML = '<div class="empty">Cole os dados do PuTTY e clique em PROCESSAR</div>';
+        resultados = [];
+        esconderAlerta();
+    });
+
+    // ── EXPORTAR CSV ──
+    function exportarCSV() {
+        if (resultados.length === 0) return;
+        const header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereco', 'Bairro', 'Referencia'];
+        const rows = resultados.map(r => [
+            `ONU ${r.num}`, r.serial, r.motivo,
+            r.contrato || '',
+            r.nomeAda || r.nome || '',
+            r.enderecoFinal || '',
+            r.bairroFinal || '',
+            r.pontoRef || ''
+        ]);
+        const csv = [header, ...rows].map(row => row.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `onus_inativas_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+    }
+
+    // ── EXPORTAR PDF ──
+    function exportarPDF() {
+        if (resultados.length === 0) return;
+
+        const data = new Date().toLocaleDateString('pt-BR');
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        const linhas = resultados.map((r, i) => {
+            const status = r.motivo || 'Inactive';
+            const contrato = r.contrato || '—';
+            const nome = r.nomeAda || r.nome || '—';
+            const end = r.enderecoFinal || '—';
+            const bairro = r.bairroFinal || '';
+            const ref = r.pontoRef || '';
+            const endCompleto = [end, bairro].filter(Boolean).join(' — ');
+            const refLinha = ref ? `<div style="font-size:11px;color:#888;margin-top:2px">Ref: ${esc(ref)}</div>` : '';
+            const statusCor = status.includes('DGI') ? '#c0392b' : '#e67e22';
+            return `
+                <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:12px;color:#666;white-space:nowrap">ONU ${esc(r.num)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;white-space:nowrap">
+                        <span style="background:${statusCor};color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;font-family:monospace">${esc(status)}</span>
+                    </td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:700;color:#1a6b3a;font-size:15px;white-space:nowrap">${esc(contrato)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:600;color:#222">${esc(nome)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;color:#444">
+                        ${esc(endCompleto)}
+                        ${refLinha}
+                    </td>
+                </tr>`;
+        }).join('');
+
+        const dgiCount = resultados.filter(r => r.motivo && r.motivo.includes('DGI')).length;
+        const loamiCount = resultados.filter(r => r.motivo && (r.motivo.includes('LOAMI') || r.motivo.includes('LOFI'))).length;
+
+        const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>ONUs Inativas — ${data}</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#222; padding:32px; }
+    @media print { body { padding: 16px; } .no-print { display:none; } }
+</style>
+</head>
+<body>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #1a6b3a">
+    <div>
+        <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Relatorio de Campo</div>
+        <h1 style="font-size:22px;color:#1a6b3a;font-weight:700">ONUs Inativas — Intervencao Necessaria</h1>
+    </div>
+    <div style="text-align:right;font-size:12px;color:#888;line-height:1.6">
+        <div>Gerado em ${data} as ${hora}</div>
+        <div style="margin-top:4px"><strong style="color:#c0392b">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong> sem sinal</div>
+    </div>
+</div>
+<table style="width:100%;border-collapse:collapse">
+    <thead>
+        <tr style="background:#1a6b3a;color:#fff">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600;white-space:nowrap">ONU</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">STATUS</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">CONTRATO</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">NOME</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDERECO</th>
+        </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+</table>
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;display:flex;justify-content:space-between">
+    <span>OLT Monitor — ISP Field Tool</span>
+    <span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>
+</div>
+<div class="no-print" style="margin-top:32px;text-align:center">
+    <button onclick="window.print()" style="background:#1a6b3a;color:#fff;border:none;padding:12px 32px;font-size:14px;cursor:pointer;border-radius:4px;font-family:sans-serif">Imprimir / Salvar PDF</button>
+</div>
+</body>
+</html>`;
+
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `onus_inativas_${new Date().toISOString().slice(0, 10)}.html`;
+        a.click();
+    }
+
+    // ── COPIAR ──
+    function copiar(texto, btn) {
+        navigator.clipboard.writeText(texto).then(() => {
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = 'copiado!';
+                btn.classList.add('ok');
+                setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 1600);
+            }
+        });
+    }
+
+    // ── UTILITARIOS ──
+    function esc(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function mostrarAlerta(msg) {
+        const el = document.getElementById('alert');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    function esconderAlerta() {
+        document.getElementById('alert').style.display = 'none';
+    }
+})();
+</script>
+</body>
+</html>
