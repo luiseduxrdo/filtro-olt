@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         OLT Monitor — Painel Integrado Ada
+// @name         Filtro OLT — Painel Integrado Ada
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  Cola output do PuTTY, filtra ONUs inativas e busca dados dos clientes automaticamente no Ada
@@ -641,7 +641,7 @@
 </table>
 
 <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;display:flex;justify-content:space-between">
-    <span>OLT Monitor — ISP Field Tool</span>
+    <span>Filtro OLT — ISP Field Tool</span>
     <span>${resultados.filter(r=>r.motivo && r.motivo.includes('DGI')).length} DGI · ${resultados.filter(r=>r.motivo && (r.motivo.includes('LOAMI') || r.motivo.includes('LOFI'))).length} LOAMI/LOFI</span>
 </div>
 
