@@ -297,6 +297,99 @@
         overflow-y: auto;
         font-family: monospace;
     }
+
+    /* ── ONBOARDING ── */
+    .onboarding {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.88);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+    .ob-card {
+        background: #141923;
+        border: 1px solid #22304a;
+        border-radius: 8px;
+        max-width: 520px;
+        width: 100%;
+        padding: 32px;
+    }
+    .ob-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+    .ob-title h2 {
+        font-size: 18px;
+        color: #fff;
+        font-family: sans-serif;
+        font-weight: 700;
+    }
+    .ob-subtitle {
+        font-size: 12px;
+        color: #5a6480;
+        font-family: sans-serif;
+        margin-bottom: 28px;
+    }
+    .ob-step {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .ob-num {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        border-radius: 50%;
+        background: #00c47a;
+        color: #000;
+        font-family: sans-serif;
+        font-weight: 700;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .ob-info h3 {
+        font-size: 14px;
+        color: #fff;
+        font-family: sans-serif;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .ob-info p {
+        font-size: 12px;
+        color: #8ba0c0;
+        font-family: sans-serif;
+        line-height: 1.5;
+    }
+    .ob-info small {
+        display: block;
+        font-size: 11px;
+        color: #ffb703;
+        margin-top: 6px;
+    }
+    .ob-info .btn { margin-top: 10px; }
+    .ob-footer {
+        margin-top: 8px;
+        text-align: center;
+    }
+    .btn-help {
+        background: transparent;
+        border: 1px solid #252b3b;
+        color: #5a6480;
+        font-family: sans-serif;
+        font-size: 11px;
+        padding: 5px 12px;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.15s;
+    }
+    .btn-help:hover { border-color: #00c47a; color: #00c47a; }
 </style>
 </head>
 <body>
@@ -305,8 +398,51 @@
 <header class="app-header">
     <div class="badge">OLT</div>
     <h1>Monitor GPON — Filtragem Automática</h1>
+    <button class="btn-help" id="btn-ajuda">Como usar</button>
     <span class="version">v2.0 web</span>
 </header>
+
+<!-- ONBOARDING -->
+<div class="onboarding" id="onboarding" style="display:none">
+    <div class="ob-card">
+        <div class="ob-title">
+            <div class="badge">OLT</div>
+            <h2>Filtro OLT</h2>
+        </div>
+        <p class="ob-subtitle">Siga os passos abaixo para configurar o servidor local</p>
+
+        <div class="ob-step">
+            <div class="ob-num">1</div>
+            <div class="ob-info">
+                <h3>Baixar o servidor</h3>
+                <p>Clique abaixo para baixar o arquivo que conecta esta pagina ao sistema Ada.</p>
+                <button class="btn btn-primary btn-sm" id="btn-download-bat">Baixar servidor (.bat)</button>
+            </div>
+        </div>
+
+        <div class="ob-step">
+            <div class="ob-num">2</div>
+            <div class="ob-info">
+                <h3>Executar o arquivo</h3>
+                <p>Clique duas vezes no arquivo baixado. O Windows pode exibir um aviso — clique em "Mais informacoes" e depois "Executar assim mesmo".</p>
+                <p>Uma janela vai abrir — deixe-a aberta enquanto usar o Filtro OLT.</p>
+                <small>Requisito: estar conectado a VPN da empresa.</small>
+            </div>
+        </div>
+
+        <div class="ob-step">
+            <div class="ob-num">3</div>
+            <div class="ob-info">
+                <h3>Comecar a usar</h3>
+                <p>Volte aqui e clique em "Testar conexao". Se o indicador ficar verde, esta tudo pronto!</p>
+            </div>
+        </div>
+
+        <div class="ob-footer">
+            <button class="btn btn-primary" id="btn-fechar-onboarding">Entendi, comecar</button>
+        </div>
+    </div>
+</div>
 
 <div class="container">
 
@@ -371,6 +507,147 @@
 <script>
 (function () {
     'use strict';
+
+    // ── ONBOARDING ──
+    function mostrarOnboarding() {
+        document.getElementById('onboarding').style.display = 'flex';
+    }
+
+    function fecharOnboarding() {
+        document.getElementById('onboarding').style.display = 'none';
+        localStorage.setItem('olt-onboarding-done', 'true');
+    }
+
+    function gerarBat() {
+        const psScript = [
+            "Add-Type -AssemblyName System.Web",
+            "",
+            "$adaBase = 'http://192.168.111.245/ISP/AdaProvider/'",
+            "$port = 8080",
+            "$listener = New-Object System.Net.HttpListener",
+            '$listener.Prefixes.Add("http://localhost:${port}/")',
+            "",
+            "try {",
+            "    $listener.Start()",
+            "} catch {",
+            "    Write-Host ''",
+            "    Write-Host '  ERRO: Porta 8080 ja esta em uso.' -ForegroundColor Red",
+            "    Write-Host '  Feche a outra instancia e tente novamente.' -ForegroundColor Yellow",
+            "    Write-Host ''",
+            "    Read-Host '  Pressione Enter para sair'",
+            "    exit",
+            "}",
+            "",
+            "Write-Host ''",
+            "Write-Host '  ============================================' -ForegroundColor DarkCyan",
+            "Write-Host '    Filtro OLT - Servidor Local' -ForegroundColor Cyan",
+            "Write-Host '  ============================================' -ForegroundColor DarkCyan",
+            "Write-Host ''",
+            'Write-Host "  Servidor ativo em http://localhost:${port}" -ForegroundColor Green',
+            "Write-Host '  Deixe esta janela aberta enquanto usar o Filtro OLT.' -ForegroundColor DarkGray",
+            "Write-Host '  Pressione Ctrl+C para encerrar.' -ForegroundColor DarkGray",
+            "Write-Host ''",
+            "",
+            "while ($listener.IsListening) {",
+            "    $ctx = $listener.GetContext()",
+            "    $req = $ctx.Request",
+            "    $res = $ctx.Response",
+            "",
+            "    $res.Headers.Add('Access-Control-Allow-Origin', '*')",
+            "    $res.Headers.Add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')",
+            "    $res.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')",
+            "",
+            "    if ($req.HttpMethod -eq 'OPTIONS') {",
+            "        $res.StatusCode = 200",
+            "        $res.Close()",
+            "        continue",
+            "    }",
+            "",
+            "    $path = $req.Url.AbsolutePath",
+            "    $res.ContentType = 'application/json; charset=utf-8'",
+            "    $body = ''",
+            "",
+            "    try {",
+            "        if ($path -eq '/health') {",
+            '            $body = \'{"status":"ok"}\'',
+            "        }",
+            "        elseif ($path -eq '/clientes') {",
+            "            $wc = New-Object System.Net.WebClient",
+            "            $wc.Encoding = [System.Text.Encoding]::UTF8",
+            "            $qs = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)",
+            "            $sSearch = $qs['sSearch']",
+            "            if (-not $sSearch) { $sSearch = '' }",
+            "            $url = $adaBase + 'gateway/Clientes.dataprovider.php?sSearch=' + [System.Uri]::EscapeDataString($sSearch) + '&iDisplayStart=0&iDisplayLength=100&sEcho=1&iColumns=6'",
+            "            $body = $wc.DownloadString($url)",
+            "        }",
+            "        elseif ($path -eq '/cadastro') {",
+            "            $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)",
+            "            $postData = $reader.ReadToEnd()",
+            "            $reader.Close()",
+            "            $wc = New-Object System.Net.WebClient",
+            "            $wc.Encoding = [System.Text.Encoding]::UTF8",
+            "            $wc.Headers.Add('Content-Type', 'application/x-www-form-urlencoded')",
+            "            $body = $wc.UploadString($adaBase + 'controller/ClienteController.php', $postData)",
+            "        }",
+            "        else {",
+            "            $res.StatusCode = 404",
+            '            $body = \'{"error":"not found"}\'',
+            "        }",
+            "    }",
+            "    catch {",
+            "        $res.StatusCode = 502",
+            "        $errMsg = $_.Exception.Message -replace '\"', ''",
+            '        $body = \'{"error":"\' + $errMsg + \'"}\'',
+            "    }",
+            "",
+            "    $buf = [System.Text.Encoding]::UTF8.GetBytes($body)",
+            "    $res.ContentLength64 = $buf.Length",
+            "    $res.OutputStream.Write($buf, 0, $buf.Length)",
+            "    $res.Close()",
+            "",
+            "    $ts = [datetime]::Now.ToString('HH:mm:ss')",
+            '    Write-Host "  [$ts] $($req.HttpMethod) $path" -ForegroundColor DarkGray',
+            "}"
+        ].join('\r\n');
+
+        const batHeader = [
+            "@echo off",
+            "chcp 65001 >nul 2>&1",
+            "title Filtro OLT - Servidor Local",
+            "echo.",
+            "echo  ============================================",
+            "echo    Filtro OLT - Servidor Local",
+            "echo  ============================================",
+            "echo.",
+            "echo  Iniciando servidor...",
+            "echo  Deixe esta janela aberta enquanto usar o Filtro OLT.",
+            "echo.",
+            "powershell -ExecutionPolicy Bypass -Command \"$c=[IO.File]::ReadAllText('%~f0');$m='__END__';$s=$c.Substring($c.IndexOf($m)+$m.Length).TrimStart();$p=Join-Path $env:TEMP 'filtro-olt-proxy.ps1';[IO.File]::WriteAllText($p,$s);& $p\"",
+            "pause",
+            "exit /b 0",
+            "",
+            "__END__"
+        ].join('\r\n');
+
+        const content = batHeader + '\r\n' + psScript;
+        const blob = new Blob([content], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'filtro-olt-servidor.bat';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('btn-download-bat').addEventListener('click', gerarBat);
+    document.getElementById('btn-fechar-onboarding').addEventListener('click', fecharOnboarding);
+    document.getElementById('btn-ajuda').addEventListener('click', mostrarOnboarding);
+
+    if (!localStorage.getItem('olt-onboarding-done')) {
+        mostrarOnboarding();
+    }
 
     // ── PROXY URL (localStorage) ──
     const proxyInput = document.getElementById('proxy-url');
