@@ -555,7 +555,7 @@
     });
 
     // ─────────────────────────────────────────────
-    // EXPORTAR CSV
+    // EXPORTAR PDF
     // ─────────────────────────────────────────────
     window.oltExportarPDF = function () {
         if (resultados.length === 0) return;
@@ -594,16 +594,28 @@
 <meta charset="UTF-8">
 <title>ONUs Inativas — ${data}</title>
 <style>
+    @page { size: A4 landscape; margin: 12mm; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#222; padding:32px; }
-    @media print {
-        body { padding: 16px; }
-        .no-print { display:none; }
+    @media print { body { padding: 0; } .no-print { display:none !important; } }
+    .fab-print {
+        position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+        display: flex; gap: 8px;
     }
+    .fab-print button {
+        background: #1a6b3a; color: #fff; border: none; padding: 12px 24px;
+        font-size: 14px; font-family: sans-serif; font-weight: 600;
+        cursor: pointer; border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        transition: background 0.15s;
+    }
+    .fab-print button:hover { background: #22893d; }
 </style>
 </head>
 <body>
-
+<div class="no-print fab-print">
+    <button onclick="window.print()">Salvar PDF / Imprimir</button>
+</div>
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #1a6b3a">
     <div>
         <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Relatório de Campo</div>
@@ -633,18 +645,12 @@
     <span>${resultados.filter(r=>r.motivo && r.motivo.includes('DGI')).length} DGI · ${resultados.filter(r=>r.motivo && (r.motivo.includes('LOAMI') || r.motivo.includes('LOFI'))).length} LOAMI/LOFI</span>
 </div>
 
-<div class="no-print" style="margin-top:32px;text-align:center">
-    <button onclick="window.print()" style="background:#1a6b3a;color:#fff;border:none;padding:12px 32px;font-size:14px;cursor:pointer;border-radius:4px;font-family:sans-serif">🖨 Imprimir / Salvar PDF</button>
-</div>
-
 </body>
 </html>`;
 
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `onus_inativas_${new Date().toISOString().slice(0,10)}.html`;
-        a.click();
+        const popup = window.open('', '_blank');
+        popup.document.write(html);
+        popup.document.close();
     };
 
     window.oltExportarCSV = function () {

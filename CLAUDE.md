@@ -68,7 +68,7 @@ Script que roda **dentro do Ada** via Tampermonkey. Como está no mesmo domínio
 **Funcionalidades:**
 - Botão 📡 flutuante no **canto inferior esquerdo** (direito está ocupado por outra extensão)
 - Painel flutuante com dois textareas para colar os outputs do PuTTY
-- Filtragem automática de ONUs inativas (status: `Inactive`, motivos: `DGI`, `LOAMI`, `LOFI`, `LOSI`, podem haver outros)
+- Filtragem automática de ONUs inativas (status: `Inactive`, motivos: `DGI`, `LOAMI`, `LOFI`, `LOSI`, pode haver outros)
 - Busca automática no Ada contrato por contrato
 - Tabela de resultados com: ONU, Status, Contrato, Nome, Endereço + Bairro, Referência
 - Exportação CSV (com colunas: ONU, Serial, Status, Contrato, Nome, Endereço, Bairro, Referência)

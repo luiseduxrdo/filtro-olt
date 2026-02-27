@@ -100,7 +100,7 @@
     .proxy-dot.ok { background: #00c47a; box-shadow: 0 0 6px #00c47a; }
     .proxy-dot.err { background: #ff4d6d; box-shadow: 0 0 6px #ff4d6d; }
 
-    /* ── BOTOES ── */
+    /* ── BOTÕES ── */
     .btn {
         font-family: sans-serif;
         font-weight: 600;
@@ -304,7 +304,7 @@
 <!-- HEADER -->
 <header class="app-header">
     <div class="badge">OLT</div>
-    <h1>Monitor GPON — Filtragem Automatica</h1>
+    <h1>Monitor GPON — Filtragem Automática</h1>
     <span class="version">v2.0 web</span>
 </header>
 
@@ -314,7 +314,7 @@
     <div class="proxy-config">
         <label>PROXY URL</label>
         <input type="text" class="proxy-input" id="proxy-url" placeholder="http://localhost:8080">
-        <button class="btn btn-test" id="btn-test-proxy">Testar conexao</button>
+        <button class="btn btn-test" id="btn-test-proxy">Testar conexão</button>
         <div class="proxy-status">
             <div class="proxy-dot" id="proxy-dot"></div>
             <span id="proxy-status-text" style="color:#5a6480">sem teste</span>
@@ -360,7 +360,7 @@
     <!-- LOG -->
     <div class="log-panel" id="log-panel">
         <div class="log-header">
-            <div class="log-title">LOG DE DIAGNOSTICO</div>
+            <div class="log-title">LOG DE DIAGNÓSTICO</div>
             <button class="log-btn" id="btn-log-limpar">limpar</button>
             <button class="log-btn" id="btn-log-copiar">copiar log</button>
         </div>
@@ -383,7 +383,7 @@
         return url;
     }
 
-    // ── TESTAR CONEXAO ──
+    // ── TESTAR CONEXÃO ──
     document.getElementById('btn-test-proxy').addEventListener('click', async () => {
         const url = getProxyUrl();
         const dot = document.getElementById('proxy-dot');
@@ -412,7 +412,7 @@
             }
         } catch (e) {
             dot.className = 'proxy-dot err';
-            txt.textContent = 'sem conexao';
+            txt.textContent = 'sem conexão';
             txt.style.color = '#ff4d6d';
         }
     });
@@ -513,7 +513,7 @@
                     const contratoNorm = String(contrato).trim();
                     const bateu = contratoRow === contratoNorm;
 
-                    log('INFO', `  linha: contrato="${contratoRow}" vs "${contratoNorm}" -> ${bateu ? 'MATCH' : 'nao bateu'}`);
+                    log('INFO', `  linha: contrato="${contratoRow}" vs "${contratoNorm}" -> ${bateu ? 'MATCH' : 'não bateu'}`);
 
                     if (bateu) {
                         nomeAda = row[1];
@@ -523,7 +523,7 @@
                             idCliente = mId[1];
                             log('OK', `[gateway] IdCliente=${idCliente} | Nome=${nomeAda}`);
                         } else {
-                            log('WARN', `[gateway] contrato bateu mas data-id nao encontrado no HTML: ${String(row[5]).substring(0, 150)}`);
+                            log('WARN', `[gateway] contrato bateu mas data-id não encontrado no HTML: ${String(row[5]).substring(0, 150)}`);
                         }
                         break;
                     }
@@ -575,9 +575,9 @@
             const enderecoCompleto = partes.join(', ');
 
             if (!enderecoCompleto) {
-                log('WARN', `[cadastro] IdCliente=${idCliente} — todos os campos de endereco vazios`);
+                log('WARN', `[cadastro] IdCliente=${idCliente} — todos os campos de endereço vazios`);
             } else {
-                log('OK', `[cadastro] endereco montado: "${enderecoCompleto}"`);
+                log('OK', `[cadastro] endereço montado: "${enderecoCompleto}"`);
             }
 
             return {
@@ -630,7 +630,7 @@
                 <table>
                     <thead><tr>
                         <th>ONU</th><th>STATUS</th><th>CONTRATO</th>
-                        <th>NOME</th><th>ENDERECO</th><th></th>
+                        <th>NOME</th><th>ENDEREÇO</th><th></th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
@@ -659,7 +659,7 @@
             resultados[i].pontoRef = dados.pontoRef;
         } else {
             el.className = 'td-end td-erro';
-            el.textContent = 'nao encontrado';
+            el.textContent = 'não encontrado';
         }
     }
 
@@ -732,7 +732,7 @@
                     const dados = await buscarDadosCliente(idCliente);
                     atualizarLinha(i, dados);
                 } else {
-                    atualizarLinha(i, { endereco: 'contrato nao encontrado' });
+                    atualizarLinha(i, { endereco: 'contrato não encontrado' });
                 }
             } catch (e) {
                 atualizarLinha(i, { endereco: 'erro' });
@@ -741,7 +741,7 @@
             await new Promise(res => setTimeout(res, 150));
         }
 
-        progTxt.textContent = 'Concluido!';
+        progTxt.textContent = 'Concluído!';
         setTimeout(() => { progEl.style.display = 'none'; }, 2000);
         btn.disabled = false;
     });
@@ -763,7 +763,7 @@
     // ── EXPORTAR CSV ──
     function exportarCSV() {
         if (resultados.length === 0) return;
-        const header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereco', 'Bairro', 'Referencia'];
+        const header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
         const rows = resultados.map(r => [
             `ONU ${r.num}`, r.serial, r.motivo,
             r.contrato || '',
@@ -821,19 +821,35 @@
 <meta charset="UTF-8">
 <title>ONUs Inativas — ${data}</title>
 <style>
+    @page { size: A4 landscape; margin: 12mm; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#222; padding:32px; }
-    @media print { body { padding: 16px; } .no-print { display:none; } }
+    @media print { body { padding: 0; } .no-print { display:none !important; } }
+    .fab-print {
+        position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+        display: flex; gap: 8px;
+    }
+    .fab-print button {
+        background: #1a6b3a; color: #fff; border: none; padding: 12px 24px;
+        font-size: 14px; font-family: sans-serif; font-weight: 600;
+        cursor: pointer; border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        transition: background 0.15s;
+    }
+    .fab-print button:hover { background: #22893d; }
 </style>
 </head>
 <body>
+<div class="no-print fab-print">
+    <button onclick="window.print()">Salvar PDF / Imprimir</button>
+</div>
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #1a6b3a">
     <div>
-        <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Relatorio de Campo</div>
-        <h1 style="font-size:22px;color:#1a6b3a;font-weight:700">ONUs Inativas — Intervencao Necessaria</h1>
+        <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Relatório de Campo</div>
+        <h1 style="font-size:22px;color:#1a6b3a;font-weight:700">ONUs Inativas — Intervenção Necessária</h1>
     </div>
     <div style="text-align:right;font-size:12px;color:#888;line-height:1.6">
-        <div>Gerado em ${data} as ${hora}</div>
+        <div>Gerado em ${data} às ${hora}</div>
         <div style="margin-top:4px"><strong style="color:#c0392b">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong> sem sinal</div>
     </div>
 </div>
@@ -844,7 +860,7 @@
             <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">STATUS</th>
             <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">CONTRATO</th>
             <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">NOME</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDERECO</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDEREÇO</th>
         </tr>
     </thead>
     <tbody>${linhas}</tbody>
@@ -853,17 +869,12 @@
     <span>OLT Monitor — ISP Field Tool</span>
     <span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>
 </div>
-<div class="no-print" style="margin-top:32px;text-align:center">
-    <button onclick="window.print()" style="background:#1a6b3a;color:#fff;border:none;padding:12px 32px;font-size:14px;cursor:pointer;border-radius:4px;font-family:sans-serif">Imprimir / Salvar PDF</button>
-</div>
 </body>
 </html>`;
 
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `onus_inativas_${new Date().toISOString().slice(0, 10)}.html`;
-        a.click();
+        const popup = window.open('', '_blank');
+        popup.document.write(html);
+        popup.document.close();
     }
 
     // ── COPIAR ──
@@ -878,7 +889,7 @@
         });
     }
 
-    // ── UTILITARIOS ──
+    // ── UTILITÁRIOS ──
     function esc(str) {
         if (!str) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

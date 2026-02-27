@@ -1,15 +1,13 @@
 @echo off
 chcp 65001 >nul 2>&1
-title OLT Monitor — Inicializando
+title OLT Monitor
 
-:: ── CORES VIA ECHO ──
 echo.
 echo  ============================================
-echo    OLT Monitor — ISP Field Tool
+echo    OLT Monitor - ISP Field Tool
 echo  ============================================
 echo.
 
-:: ── 1. VERIFICAR DIRETORIO ──
 echo  [1/4] Verificando diretorio...
 
 if not exist "%~dp0painel-olt.html" (
@@ -30,10 +28,9 @@ if not exist "%~dp0olt-proxy\proxy.js" (
     exit /b 1
 )
 
-echo         OK — Arquivos encontrados.
+echo         OK - Arquivos encontrados.
 echo.
 
-:: ── 2. VERIFICAR NODE.JS ──
 echo  [2/4] Verificando Node.js...
 
 where node >nul 2>&1
@@ -47,16 +44,15 @@ if errorlevel 1 (
 )
 
 for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
-echo         OK — Node.js %NODE_VER%
+echo         OK - Node.js %NODE_VER%
 echo.
 
-:: ── 3. VERIFICAR DEPENDENCIAS ──
 echo  [3/4] Verificando dependencias...
 
 if not exist "%~dp0olt-proxy\node_modules\express" (
-    echo         Instalando dependencias (npm install)...
+    echo         Instalando dependencias...
     cd /d "%~dp0olt-proxy"
-    npm install
+    call npm install
     if errorlevel 1 (
         echo.
         echo  ERRO: Falha ao instalar dependencias.
@@ -64,20 +60,18 @@ if not exist "%~dp0olt-proxy\node_modules\express" (
         pause
         exit /b 1
     )
-    echo         OK — Dependencias instaladas.
+    echo         OK - Dependencias instaladas.
 ) else (
-    echo         OK — Dependencias ja instaladas.
+    echo         OK - Dependencias ja instaladas.
 )
 echo.
 
-:: ── 4. VERIFICAR PORTA 8080 ──
 echo  [4/4] Iniciando servidor...
 
 netstat -ano | findstr ":8080 " | findstr "LISTENING" >nul 2>&1
 if not errorlevel 1 (
     echo.
     echo  AVISO: Porta 8080 ja esta em uso.
-    echo  Outro processo pode estar rodando nela.
     echo  Tentando abrir o painel mesmo assim...
     echo.
     timeout /t 2 >nul
@@ -86,7 +80,6 @@ if not errorlevel 1 (
     exit /b 0
 )
 
-:: ── INICIAR SERVIDOR E ABRIR BROWSER ──
 echo         Iniciando proxy na porta 8080...
 echo.
 echo  ============================================
