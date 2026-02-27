@@ -414,18 +414,22 @@
         <div class="ob-step">
             <div class="ob-num">1</div>
             <div class="ob-info">
-                <h3>Baixar o servidor</h3>
-                <p>Clique abaixo para baixar o arquivo que conecta esta pagina ao sistema Ada.</p>
-                <button class="btn btn-primary btn-sm" id="btn-download-bat">Baixar servidor (.bat)</button>
+                <h3>Copiar o comando</h3>
+                <p>Clique em "Copiar" para copiar o comando que inicia o servidor local.</p>
+                <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+                    <code id="cmd-texto" style="flex:1;background:#080b10;border:1px solid #252b3b;color:#00c47a;font-size:11px;padding:8px 12px;border-radius:3px;word-break:break-all;user-select:all">powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/luiseduxrdo/filtro-olt/master/servidor.ps1 | iex"</code>
+                    <button class="btn btn-primary btn-sm" id="btn-copiar-cmd">Copiar</button>
+                </div>
             </div>
         </div>
 
         <div class="ob-step">
             <div class="ob-num">2</div>
             <div class="ob-info">
-                <h3>Executar o arquivo</h3>
-                <p>Clique duas vezes no arquivo baixado. O Windows pode exibir um aviso — clique em "Mais informacoes" e depois "Executar assim mesmo".</p>
-                <p>Uma janela vai abrir — deixe-a aberta enquanto usar o Filtro OLT.</p>
+                <h3>Abrir o PowerShell e colar</h3>
+                <p>Pressione <strong style="color:#fff">Win+R</strong>, digite <strong style="color:#00c47a">powershell</strong> e pressione Enter.</p>
+                <p>Na janela que abrir, cole o comando com <strong style="color:#fff">Ctrl+V</strong> e pressione Enter.</p>
+                <p>Uma janela do servidor vai aparecer — deixe-a aberta enquanto usar o Filtro OLT.</p>
                 <small>Requisito: estar conectado a VPN da empresa.</small>
             </div>
         </div>
@@ -518,130 +522,31 @@
         localStorage.setItem('olt-onboarding-done', 'true');
     }
 
-    function gerarBat() {
-        const psScript = [
-            "Add-Type -AssemblyName System.Web",
-            "",
-            "$adaBase = 'http://192.168.111.245/ISP/AdaProvider/'",
-            "$port = 8080",
-            "$listener = New-Object System.Net.HttpListener",
-            '$listener.Prefixes.Add("http://localhost:${port}/")',
-            "",
-            "try {",
-            "    $listener.Start()",
-            "} catch {",
-            "    Write-Host ''",
-            "    Write-Host '  ERRO: Porta 8080 ja esta em uso.' -ForegroundColor Red",
-            "    Write-Host '  Feche a outra instancia e tente novamente.' -ForegroundColor Yellow",
-            "    Write-Host ''",
-            "    Read-Host '  Pressione Enter para sair'",
-            "    exit",
-            "}",
-            "",
-            "Write-Host ''",
-            "Write-Host '  ============================================' -ForegroundColor DarkCyan",
-            "Write-Host '    Filtro OLT - Servidor Local' -ForegroundColor Cyan",
-            "Write-Host '  ============================================' -ForegroundColor DarkCyan",
-            "Write-Host ''",
-            'Write-Host "  Servidor ativo em http://localhost:${port}" -ForegroundColor Green',
-            "Write-Host '  Deixe esta janela aberta enquanto usar o Filtro OLT.' -ForegroundColor DarkGray",
-            "Write-Host '  Pressione Ctrl+C para encerrar.' -ForegroundColor DarkGray",
-            "Write-Host ''",
-            "",
-            "while ($listener.IsListening) {",
-            "    $ctx = $listener.GetContext()",
-            "    $req = $ctx.Request",
-            "    $res = $ctx.Response",
-            "",
-            "    $res.Headers.Add('Access-Control-Allow-Origin', '*')",
-            "    $res.Headers.Add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')",
-            "    $res.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')",
-            "",
-            "    if ($req.HttpMethod -eq 'OPTIONS') {",
-            "        $res.StatusCode = 200",
-            "        $res.Close()",
-            "        continue",
-            "    }",
-            "",
-            "    $path = $req.Url.AbsolutePath",
-            "    $res.ContentType = 'application/json; charset=utf-8'",
-            "    $body = ''",
-            "",
-            "    try {",
-            "        if ($path -eq '/health') {",
-            '            $body = \'{"status":"ok"}\'',
-            "        }",
-            "        elseif ($path -eq '/clientes') {",
-            "            $wc = New-Object System.Net.WebClient",
-            "            $wc.Encoding = [System.Text.Encoding]::UTF8",
-            "            $qs = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)",
-            "            $sSearch = $qs['sSearch']",
-            "            if (-not $sSearch) { $sSearch = '' }",
-            "            $url = $adaBase + 'gateway/Clientes.dataprovider.php?sSearch=' + [System.Uri]::EscapeDataString($sSearch) + '&iDisplayStart=0&iDisplayLength=100&sEcho=1&iColumns=6'",
-            "            $body = $wc.DownloadString($url)",
-            "        }",
-            "        elseif ($path -eq '/cadastro') {",
-            "            $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)",
-            "            $postData = $reader.ReadToEnd()",
-            "            $reader.Close()",
-            "            $wc = New-Object System.Net.WebClient",
-            "            $wc.Encoding = [System.Text.Encoding]::UTF8",
-            "            $wc.Headers.Add('Content-Type', 'application/x-www-form-urlencoded')",
-            "            $body = $wc.UploadString($adaBase + 'controller/ClienteController.php', $postData)",
-            "        }",
-            "        else {",
-            "            $res.StatusCode = 404",
-            '            $body = \'{"error":"not found"}\'',
-            "        }",
-            "    }",
-            "    catch {",
-            "        $res.StatusCode = 502",
-            "        $errMsg = $_.Exception.Message -replace '\"', ''",
-            '        $body = \'{"error":"\' + $errMsg + \'"}\'',
-            "    }",
-            "",
-            "    $buf = [System.Text.Encoding]::UTF8.GetBytes($body)",
-            "    $res.ContentLength64 = $buf.Length",
-            "    $res.OutputStream.Write($buf, 0, $buf.Length)",
-            "    $res.Close()",
-            "",
-            "    $ts = [datetime]::Now.ToString('HH:mm:ss')",
-            '    Write-Host "  [$ts] $($req.HttpMethod) $path" -ForegroundColor DarkGray',
-            "}"
-        ].join('\r\n');
-
-        const batHeader = [
-            "@echo off",
-            "chcp 65001 >nul 2>&1",
-            "title Filtro OLT - Servidor Local",
-            "echo.",
-            "echo  ============================================",
-            "echo    Filtro OLT - Servidor Local",
-            "echo  ============================================",
-            "echo.",
-            "echo  Iniciando servidor...",
-            "echo  Deixe esta janela aberta enquanto usar o Filtro OLT.",
-            "echo.",
-            "powershell -ExecutionPolicy Bypass -Command \"$c=[IO.File]::ReadAllText('%~f0');$m='__END__';$s=$c.Substring($c.IndexOf($m)+$m.Length).TrimStart();$p=Join-Path $env:TEMP 'filtro-olt-proxy.ps1';[IO.File]::WriteAllText($p,$s);& $p\"",
-            "pause",
-            "exit /b 0",
-            "",
-            "__END__"
-        ].join('\r\n');
-
-        const content = batHeader + '\r\n' + psScript;
-        const blob = new Blob([content], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'filtro-olt-servidor.bat';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    function copiarComando() {
+        const cmd = document.getElementById('cmd-texto').textContent;
+        const btn = document.getElementById('btn-copiar-cmd');
+        // Fallback para HTTP (navigator.clipboard requer HTTPS)
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(cmd);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = cmd;
+                ta.style.cssText = 'position:fixed;left:-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            btn.textContent = 'Copiado!';
+            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        } catch (e) {
+            btn.textContent = 'Erro';
+            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        }
     }
 
-    document.getElementById('btn-download-bat').addEventListener('click', gerarBat);
+    document.getElementById('btn-copiar-cmd').addEventListener('click', copiarComando);
     document.getElementById('btn-fechar-onboarding').addEventListener('click', fecharOnboarding);
     document.getElementById('btn-ajuda').addEventListener('click', mostrarOnboarding);
 
