@@ -6,9 +6,9 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const ADA_BASE = 'http://192.168.111.245/ISP/AdaProvider/';
 
-// Servir painel-olt.html na raiz
+// Servir index.html na raiz
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'painel-olt.html'));
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 // CORS — uso interno, aceita qualquer origem

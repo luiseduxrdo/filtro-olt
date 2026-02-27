@@ -10,9 +10,9 @@ echo.
 
 echo  [1/4] Verificando diretorio...
 
-if not exist "%~dp0painel-olt.html" (
+if not exist "%~dp0index.html" (
     echo.
-    echo  ERRO: painel-olt.html nao encontrado.
+    echo  ERRO: index.html nao encontrado.
     echo  Execute este .bat dentro da pasta filtro-olt.
     echo.
     pause
