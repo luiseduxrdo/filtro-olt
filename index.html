@@ -91,17 +91,6 @@
         font-size: 11px;
         font-family: sans-serif;
     }
-    .proxy-hint {
-        width: 100%;
-        font-size: 11px;
-        color: #5a6480;
-        font-family: sans-serif;
-        line-height: 1.5;
-    }
-    .proxy-hint code {
-        color: #00c47a;
-        font-family: 'Courier New', monospace;
-    }
     .proxy-dot {
         width: 8px;
         height: 8px;
@@ -484,7 +473,6 @@
             <div class="proxy-dot" id="proxy-dot"></div>
             <span id="proxy-status-text" style="color:#5a6480">sem teste</span>
         </div>
-        <div class="proxy-hint">Se o painel estiver no GitHub Pages ou Vercel, o proxy continua local: <code>http://localhost:8080</code></div>
     </div>
 
     <!-- TEXTAREAS -->
@@ -1016,7 +1004,7 @@
         const progFill = document.getElementById('progress-fill');
         const pct = total ? Math.round((concluidos / total) * 100) : 0;
         progEl.style.display = 'block';
-        progTxt.textContent = `Buscando no Ada: contrato ${contratoAtual || 'â€”'} (${concluidos}/${total})`;
+        progTxt.textContent = `Buscando no Ada: contrato ${contratoAtual || '-'} (${concluidos}/${total})`;
         progFill.style.width = pct + '%';
     }
 
@@ -1039,7 +1027,7 @@
                 const dados = await buscarDadosCliente(idCliente);
                 atualizarLinha(i, dados);
             } else {
-                atualizarLinha(i, { endereco: 'contrato nÃ£o encontrado' });
+                atualizarLinha(i, { endereco: 'contrato não encontrado' });
             }
         } catch (e) {
             atualizarLinha(i, { endereco: 'erro' });
@@ -1070,7 +1058,7 @@
 
         await Promise.all(workers);
 
-        progTxt.textContent = 'ConcluÃ­do!';
+        progTxt.textContent = 'Concluído!';
         setTimeout(() => { progEl.style.display = 'none'; }, 2000);
         btn.disabled = false;
         renderTabela();
