@@ -711,7 +711,7 @@
             throw new Error('status != ok');
         } catch (e) {
             dot.className = 'proxy-dot err';
-            txt.textContent = e.message.includes('resposta HTML') ? 'url incorreta' : 'sem conexÃ£o';
+            txt.textContent = e.message.includes('resposta HTML') ? 'url incorreta' : 'sem conexão';
             txt.style.color = '#ff4d6d';
             if (showAlertOnError) {
                 mostrarAlerta(`Proxy indisponivel: ${e.message}`);
