@@ -16,7 +16,7 @@ O projeto passou de um userscript Tampermonkey para uma aplicacao web standalone
 | `servidor.ps1` | Proxy PowerShell local (HttpListener, porta 8080) | Pronto |
 | `iniciar.bat` | Script de inicializacao local (usa Node.js, versao legada) | Legado |
 | `olt-proxy/proxy.js` | Proxy Node.js (versao legada) | Legado |
-| `CLAUDE.md` | Documentacao tecnica para IA/desenvolvimento | Atualizado |
+| `CODEX.md` | Documentacao tecnica para Codex/IA/desenvolvimento | Atualizado |
 
 ---
 

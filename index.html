@@ -91,6 +91,17 @@
         font-size: 11px;
         font-family: sans-serif;
     }
+    .proxy-hint {
+        width: 100%;
+        font-size: 11px;
+        color: #5a6480;
+        font-family: sans-serif;
+        line-height: 1.5;
+    }
+    .proxy-hint code {
+        color: #00c47a;
+        font-family: 'Courier New', monospace;
+    }
     .proxy-dot {
         width: 8px;
         height: 8px;
@@ -459,6 +470,7 @@
             <div class="proxy-dot" id="proxy-dot"></div>
             <span id="proxy-status-text" style="color:#5a6480">sem teste</span>
         </div>
+        <div class="proxy-hint">Se o painel estiver no GitHub Pages ou Vercel, o proxy continua local: <code>http://localhost:8080</code></div>
     </div>
 
     <!-- TEXTAREAS -->
@@ -555,14 +567,69 @@
     }
 
     // ── PROXY URL (localStorage) ──
+    const DEFAULT_PROXY_URL = 'http://localhost:8080';
     const proxyInput = document.getElementById('proxy-url');
     const saved = localStorage.getItem('olt-proxy-url');
-    proxyInput.value = saved || window.location.origin;
+
+    function getDefaultProxyUrl() {
+        const host = window.location.hostname;
+        const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+        return isLocalHost ? window.location.origin : DEFAULT_PROXY_URL;
+    }
+
+    function normalizeUrl(url) {
+        return String(url || '').trim().replace(/\/+$/, '');
+    }
+
+    function shouldResetSavedProxy(url) {
+        const currentOrigin = normalizeUrl(window.location.origin);
+        const savedUrl = normalizeUrl(url);
+        return savedUrl && savedUrl === currentOrigin && getDefaultProxyUrl() !== currentOrigin;
+    }
+
+    proxyInput.value = shouldResetSavedProxy(saved) ? getDefaultProxyUrl() : (saved || getDefaultProxyUrl());
 
     function getProxyUrl() {
-        const url = proxyInput.value.trim().replace(/\/+$/, '');
+        const url = normalizeUrl(proxyInput.value);
         localStorage.setItem('olt-proxy-url', url);
         return url;
+    }
+
+    function getResponsePreview(texto) {
+        return String(texto || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    }
+
+    function isHtmlResponse(texto, contentType) {
+        return contentType.includes('text/html')
+            || /^\s*<!DOCTYPE html/i.test(texto)
+            || /^\s*<html/i.test(texto);
+    }
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+        const raw = await res.text();
+        const htmlResponse = isHtmlResponse(raw, contentType);
+
+        if (!res.ok) {
+            if (htmlResponse) {
+                throw new Error(`resposta HTML em vez de JSON. Confira a URL do proxy. Em site hospedado, use ${DEFAULT_PROXY_URL}. Preview: ${getResponsePreview(raw)}`);
+            }
+            throw new Error(`HTTP ${res.status} em ${url}`);
+        }
+
+        if (!raw) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            if (htmlResponse) {
+                throw new Error(`resposta HTML em vez de JSON. Confira a URL do proxy. Em site hospedado, use ${DEFAULT_PROXY_URL}. Preview: ${getResponsePreview(raw)}`);
+            }
+            throw new Error(`resposta invalida do proxy (${contentType || 'sem content-type'}). Preview: ${getResponsePreview(raw)}`);
+        }
     }
 
     // ── TESTAR CONEXÃO ──
@@ -583,8 +650,7 @@
         txt.style.color = '#5a6480';
 
         try {
-            const res = await fetch(url + '/health', { signal: AbortSignal.timeout(5000) });
-            const data = await res.json();
+            const data = await fetchJson(url + '/health', { signal: AbortSignal.timeout(5000) });
             if (data.status === 'ok') {
                 dot.className = 'proxy-dot ok';
                 txt.textContent = 'conectado';
@@ -594,7 +660,7 @@
             }
         } catch (e) {
             dot.className = 'proxy-dot err';
-            txt.textContent = 'sem conexão';
+            txt.textContent = e.message.includes('resposta HTML') ? 'url incorreta' : 'sem conexão';
             txt.style.color = '#ff4d6d';
         }
     });
@@ -682,8 +748,7 @@
         log('INFO', `[gateway] buscando contrato "${contrato}" via proxy...`);
 
         try {
-            const res = await fetch(`${proxy}/clientes?${params}`);
-            const json = await res.json();
+            const json = await fetchJson(`${proxy}/clientes?${params}`);
 
             log('INFO', `[gateway] contrato buscado: "${contrato}" -> total retornado: ${json.aaData ? json.aaData.length : 0} linha(s)`);
 
@@ -739,12 +804,11 @@
         const proxy = getProxyUrl();
 
         try {
-            const res = await fetch(`${proxy}/cadastro`, {
+            const r = await fetchJson(`${proxy}/cadastro`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `call=carregarClienteAction&IdCliente=${encodeURIComponent(idCliente)}`
             });
-            const r = await res.json();
 
             log('INFO', `[cadastro] resposta para IdCliente=${idCliente}:`, r);
 
