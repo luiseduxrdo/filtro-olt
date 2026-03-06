@@ -5,6 +5,13 @@ $port = 8080
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:${port}/")
 
+function New-AdaWebClient {
+    $wc = New-Object System.Net.WebClient
+    $wc.Encoding = [System.Text.Encoding]::UTF8
+    $wc.Proxy = $null
+    return $wc
+}
+
 try {
     $listener.Start()
 } catch {
@@ -50,8 +57,7 @@ while ($listener.IsListening) {
             $body = '{"status":"ok"}'
         }
         elseif ($path -eq '/clientes') {
-            $wc = New-Object System.Net.WebClient
-            $wc.Encoding = [System.Text.Encoding]::UTF8
+            $wc = New-AdaWebClient
             $qs = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)
             $sSearch = $qs['sSearch']
             if (-not $sSearch) { $sSearch = '' }
@@ -62,8 +68,7 @@ while ($listener.IsListening) {
             $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
             $postData = $reader.ReadToEnd()
             $reader.Close()
-            $wc = New-Object System.Net.WebClient
-            $wc.Encoding = [System.Text.Encoding]::UTF8
+            $wc = New-AdaWebClient
             $wc.Headers.Add('Content-Type', 'application/x-www-form-urlencoded')
             $body = $wc.UploadString($adaBase + 'controller/ClienteController.php', $postData)
         }
