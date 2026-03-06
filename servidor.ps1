@@ -5,11 +5,53 @@ $port = 8080
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:${port}/")
 
-function New-AdaWebClient {
-    $wc = New-Object System.Net.WebClient
-    $wc.Encoding = [System.Text.Encoding]::UTF8
-    $wc.Proxy = $null
-    return $wc
+function Read-ResponseBody($response) {
+    $stream = $response.GetResponseStream()
+    if (-not $stream) { return '' }
+    $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+    try {
+        return $reader.ReadToEnd()
+    }
+    finally {
+        $reader.Close()
+        $stream.Close()
+        $response.Close()
+    }
+}
+
+function Invoke-AdaRequest($url, $method = 'GET', $body = $null, $contentType = $null) {
+    $req = [System.Net.HttpWebRequest]::Create($url)
+    $req.Method = $method
+    $req.AllowAutoRedirect = $false
+    $req.Proxy = $null
+    $req.UserAgent = 'Filtro-OLT-Proxy/1.0'
+
+    if ($contentType) {
+        $req.ContentType = $contentType
+    }
+
+    if ($body -ne $null) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+        $req.ContentLength = $bytes.Length
+        $reqStream = $req.GetRequestStream()
+        try {
+            $reqStream.Write($bytes, 0, $bytes.Length)
+        }
+        finally {
+            $reqStream.Close()
+        }
+    }
+
+    try {
+        $resp = $req.GetResponse()
+        return Read-ResponseBody $resp
+    }
+    catch [System.Net.WebException] {
+        if ($_.Exception.Response) {
+            return Read-ResponseBody $_.Exception.Response
+        }
+        throw
+    }
 }
 
 try {
@@ -57,20 +99,17 @@ while ($listener.IsListening) {
             $body = '{"status":"ok"}'
         }
         elseif ($path -eq '/clientes') {
-            $wc = New-AdaWebClient
             $qs = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)
             $sSearch = $qs['sSearch']
             if (-not $sSearch) { $sSearch = '' }
             $url = $adaBase + 'gateway/Clientes.dataprovider.php?sSearch=' + [System.Uri]::EscapeDataString($sSearch) + '&iDisplayStart=0&iDisplayLength=100&sEcho=1&iColumns=6'
-            $body = $wc.DownloadString($url)
+            $body = Invoke-AdaRequest $url
         }
         elseif ($path -eq '/cadastro') {
             $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
             $postData = $reader.ReadToEnd()
             $reader.Close()
-            $wc = New-AdaWebClient
-            $wc.Headers.Add('Content-Type', 'application/x-www-form-urlencoded')
-            $body = $wc.UploadString($adaBase + 'controller/ClienteController.php', $postData)
+            $body = Invoke-AdaRequest ($adaBase + 'controller/ClienteController.php') 'POST' $postData 'application/x-www-form-urlencoded'
         }
         else {
             $res.StatusCode = 404
