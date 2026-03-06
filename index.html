@@ -220,6 +220,16 @@
     .results-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .results-title { font-size: 11px; color: #5a6480; letter-spacing: 1px; }
     .badge-count { background: #ff4d6d; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 2px; }
+    .summary-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+    .summary-pill {
+        background: #1a1f2e;
+        border: 1px solid #252b3b;
+        color: #8ba0c0;
+        font-size: 10px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-family: sans-serif;
+    }
 
     .export-bar { display: flex; gap: 6px; margin-left: auto; }
     .btn-export {
@@ -235,6 +245,10 @@
         transition: all 0.15s;
     }
     .btn-export:hover { background: #00c47a; color: #000; }
+    .btn-export.warn { color: #ffb703; border-color: #ffb703; }
+    .btn-export.warn:hover { background: #ffb703; color: #000; }
+    .btn-export.dim { color: #8ba0c0; border-color: #3a4565; }
+    .btn-export.dim:hover { background: #3a4565; color: #fff; }
 
     .table-wrap {
         background: #13161e;
@@ -537,25 +551,42 @@
     function copiarComando() {
         const cmd = document.getElementById('cmd-texto').textContent;
         const btn = document.getElementById('btn-copiar-cmd');
-        // Fallback para HTTP (navigator.clipboard requer HTTPS)
+        copiarTexto(cmd).then(ok => {
+            btn.textContent = ok ? 'Copiado!' : 'Erro';
+            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        });
+    }
+
+    async function copiarTexto(texto) {
         try {
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(cmd);
-            } else {
-                const ta = document.createElement('textarea');
-                ta.value = cmd;
-                ta.style.cssText = 'position:fixed;left:-9999px';
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
+                await navigator.clipboard.writeText(texto);
+                return true;
             }
-            btn.textContent = 'Copiado!';
-            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+
+            const ta = document.createElement('textarea');
+            ta.value = texto;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
         } catch (e) {
-            btn.textContent = 'Erro';
-            setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+            return false;
         }
+    }
+
+    function animarBotaoCopiar(btn, ok, okLabel, defaultLabel, waitMs) {
+        if (!btn) return;
+        const original = defaultLabel || btn.textContent;
+        btn.textContent = ok ? okLabel : 'erro';
+        if (ok) btn.classList.add('ok');
+        setTimeout(() => {
+            btn.textContent = original;
+            btn.classList.remove('ok');
+        }, waitMs || 1600);
     }
 
     document.getElementById('btn-copiar-cmd').addEventListener('click', copiarComando);
@@ -665,6 +696,46 @@
         }
     });
 
+    async function testarProxySilencioso(showAlertOnError) {
+        const url = getProxyUrl();
+        const dot = document.getElementById('proxy-dot');
+        const txt = document.getElementById('proxy-status-text');
+
+        if (!url) {
+            dot.className = 'proxy-dot err';
+            txt.textContent = 'URL vazia';
+            txt.style.color = '#ff4d6d';
+            return false;
+        }
+
+        dot.className = 'proxy-dot';
+        txt.textContent = 'testando...';
+        txt.style.color = '#5a6480';
+
+        try {
+            const data = await fetchJson(url + '/health', { signal: AbortSignal.timeout(5000) });
+            if (data && data.status === 'ok') {
+                dot.className = 'proxy-dot ok';
+                txt.textContent = 'conectado';
+                txt.style.color = '#00c47a';
+                return true;
+            }
+            throw new Error('status != ok');
+        } catch (e) {
+            dot.className = 'proxy-dot err';
+            txt.textContent = e.message.includes('resposta HTML') ? 'url incorreta' : 'sem conexÃ£o';
+            txt.style.color = '#ff4d6d';
+            if (showAlertOnError) {
+                mostrarAlerta(`Proxy indisponivel: ${e.message}`);
+            }
+            return false;
+        }
+    }
+
+    proxyInput.addEventListener('change', () => { testarProxySilencioso(false); });
+    proxyInput.addEventListener('blur', () => { testarProxySilencioso(false); });
+    setTimeout(() => { testarProxySilencioso(false); }, 250);
+
     // ── LOG ──
     const logs = [];
 
@@ -696,11 +767,9 @@
 
     document.getElementById('btn-log-copiar').addEventListener('click', () => {
         const txt = logs.map(l => l.linha).join('\n');
-        navigator.clipboard.writeText(txt).then(() => {
-            const btn = document.getElementById('btn-log-copiar');
-            const orig = btn.textContent;
-            btn.textContent = 'copiado!';
-            setTimeout(() => btn.textContent = orig, 1500);
+        const btn = document.getElementById('btn-log-copiar');
+        copiarTexto(txt).then(ok => {
+            animarBotaoCopiar(btn, ok, 'copiado!', 'copiar log', 1500);
         });
     });
 
@@ -842,6 +911,23 @@
 
     // ── RESULTADOS ──
     let resultados = [];
+    const MAX_CONCURRENT_REQUESTS = 3;
+
+    function getResumoResultados() {
+        return {
+            dgi: resultados.filter(r => (r.motivo || '').includes('DGI')).length,
+            perda: resultados.filter(r => /LOAMI|LOFI|LOSI/.test(r.motivo || '')).length,
+            semContrato: resultados.filter(r => !r.contrato).length,
+            pendentes: resultados.filter(r => r.contrato && !r.enderecoFinal).length
+        };
+    }
+
+    function getIndicesPendentes() {
+        return resultados
+            .map((r, i) => ({ r, i }))
+            .filter(item => item.r.contrato && !item.r.enderecoFinal)
+            .map(item => item.i);
+    }
 
     function renderTabela() {
         const area = document.getElementById('result-area');
@@ -849,6 +935,8 @@
             area.innerHTML = '<div class="empty">Nenhuma ONU inativa encontrada.</div>';
             return;
         }
+
+        const resumo = getResumoResultados();
 
         const rows = resultados.map((r, i) => `
             <tr id="row-${i}">
@@ -867,9 +955,18 @@
             <div class="results-header">
                 <div class="results-title">ONUs INATIVAS</div>
                 <div class="badge-count">${resultados.length} clientes</div>
+                <div class="summary-bar">
+                    <div class="summary-pill">${resumo.dgi} DGI</div>
+                    <div class="summary-pill">${resumo.perda} LOAMI/LOFI/LOSI</div>
+                    <div class="summary-pill">${resumo.semContrato} sem contrato</div>
+                    <div class="summary-pill">${resumo.pendentes} pendentes</div>
+                </div>
                 <div class="export-bar">
+                    <button class="btn-export dim" id="btn-copy-all">COPIAR CONTRATOS</button>
+                    <button class="btn-export dim" id="btn-retry">RETENTAR FALHAS</button>
                     <button class="btn-export" id="btn-csv">CSV</button>
-                    <button class="btn-export" id="btn-pdf" style="color:#ffb703;border-color:#ffb703">PDF</button>
+                    <button class="btn-export" id="btn-img">IMG</button>
+                    <button class="btn-export warn" id="btn-pdf">PDF</button>
                 </div>
             </div>
             <div class="table-wrap">
@@ -883,7 +980,10 @@
             </div>
         `;
 
+        document.getElementById('btn-copy-all').addEventListener('click', copiarTodosContratos);
+        document.getElementById('btn-retry').addEventListener('click', retentarFalhas);
         document.getElementById('btn-csv').addEventListener('click', exportarCSV);
+        document.getElementById('btn-img').addEventListener('click', exportarImagem);
         document.getElementById('btn-pdf').addEventListener('click', exportarPDF);
 
         area.querySelectorAll('.copy-btn').forEach(btn => {
@@ -910,6 +1010,93 @@
     }
 
     // ── PROCESSAR ──
+    function atualizarProgressoBusca(concluidos, total, contratoAtual) {
+        const progEl = document.getElementById('progress');
+        const progTxt = document.getElementById('progress-txt');
+        const progFill = document.getElementById('progress-fill');
+        const pct = total ? Math.round((concluidos / total) * 100) : 0;
+        progEl.style.display = 'block';
+        progTxt.textContent = `Buscando no Ada: contrato ${contratoAtual || 'â€”'} (${concluidos}/${total})`;
+        progFill.style.width = pct + '%';
+    }
+
+    async function processarLinhaResultado(i) {
+        const r = resultados[i];
+        if (!r || !r.contrato) {
+            atualizarLinha(i, {});
+            return;
+        }
+
+        try {
+            const { idCliente, nomeAda } = await buscarIdCliente(r.contrato);
+            if (nomeAda) resultados[i].nomeAda = nomeAda;
+
+            const nomeEl = document.querySelector(`#row-${i} .td-nome`);
+            if (nomeEl && nomeAda) nomeEl.textContent = nomeAda;
+
+            if (idCliente) {
+                resultados[i].idCliente = idCliente;
+                const dados = await buscarDadosCliente(idCliente);
+                atualizarLinha(i, dados);
+            } else {
+                atualizarLinha(i, { endereco: 'contrato nÃ£o encontrado' });
+            }
+        } catch (e) {
+            atualizarLinha(i, { endereco: 'erro' });
+        }
+    }
+
+    async function processarIndices(indices) {
+        if (!indices.length) return;
+
+        const progEl = document.getElementById('progress');
+        const progTxt = document.getElementById('progress-txt');
+        const btn = document.getElementById('btn-processar');
+        let concluidos = 0;
+        const fila = indices.slice();
+
+        progEl.style.display = 'block';
+        btn.disabled = true;
+
+        const workers = Array.from({ length: Math.min(MAX_CONCURRENT_REQUESTS, fila.length) }, async () => {
+            while (fila.length) {
+                const indice = fila.shift();
+                const item = resultados[indice];
+                await processarLinhaResultado(indice);
+                concluidos += 1;
+                atualizarProgressoBusca(concluidos, indices.length, item ? item.contrato : '');
+            }
+        });
+
+        await Promise.all(workers);
+
+        progTxt.textContent = 'ConcluÃ­do!';
+        setTimeout(() => { progEl.style.display = 'none'; }, 2000);
+        btn.disabled = false;
+        renderTabela();
+    }
+
+    async function copiarTodosContratos() {
+        const contratos = resultados.map(r => r.contrato).filter(Boolean).join('\n');
+        const btn = document.getElementById('btn-copy-all');
+        if (!contratos) {
+            mostrarAlerta('Nenhum contrato disponivel para copiar.');
+            return;
+        }
+        const ok = await copiarTexto(contratos);
+        animarBotaoCopiar(btn, ok, 'copiado!', 'COPIAR CONTRATOS', 1600);
+    }
+
+    async function retentarFalhas() {
+        const indices = getIndicesPendentes();
+        if (!indices.length) {
+            mostrarAlerta('Nao ha pendencias para retentar.');
+            return;
+        }
+        esconderAlerta();
+        await processarIndices(indices);
+    }
+
     document.getElementById('btn-processar').addEventListener('click', async () => {
         const textoStatus = document.getElementById('olt-status').value.trim();
         const textoDesc = document.getElementById('olt-desc').value.trim();
@@ -922,6 +1109,11 @@
         const proxy = getProxyUrl();
         if (!proxy) {
             mostrarAlerta('Configure a URL do proxy antes de processar.');
+            return;
+        }
+
+        const proxyOk = await testarProxySilencioso(true);
+        if (!proxyOk) {
             return;
         }
 
@@ -946,6 +1138,9 @@
         renderTabela();
 
         if (resultados.length === 0) return;
+
+        await processarIndices(resultados.map((_, i) => i));
+        return;
 
         const progEl = document.getElementById('progress');
         const progTxt = document.getElementById('progress-txt');
@@ -1007,6 +1202,135 @@
     });
 
     // ── EXPORTAR CSV ──
+    function baixarBlob(blob, nomeArquivo) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = nomeArquivo;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    function getLinhasTextoCanvas(ctx, texto, larguraMax) {
+        const palavras = String(texto || '').split(/\s+/).filter(Boolean);
+        const linhas = [];
+        let atual = '';
+
+        for (const palavra of palavras) {
+            const teste = atual ? `${atual} ${palavra}` : palavra;
+            if (ctx.measureText(teste).width <= larguraMax) {
+                atual = teste;
+            } else {
+                if (atual) linhas.push(atual);
+                atual = palavra;
+            }
+        }
+
+        if (atual) linhas.push(atual);
+        return linhas.length ? linhas : ['-'];
+    }
+
+    async function exportarImagem() {
+        if (resultados.length === 0) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const margem = 48;
+        const largura = 1600;
+        const colunas = [
+            { titulo: 'ONU', x: 0, largura: 95 },
+            { titulo: 'STATUS', x: 110, largura: 170 },
+            { titulo: 'CONTRATO', x: 295, largura: 130 },
+            { titulo: 'NOME', x: 440, largura: 360 },
+            { titulo: 'ENDERECO', x: 815, largura: 520 },
+            { titulo: 'REFERENCIA', x: 1350, largura: 200 }
+        ];
+
+        ctx.font = '15px Segoe UI';
+        const linhasPorItem = resultados.map(r => ({
+            onu: [`ONU ${r.num}`],
+            status: [r.motivo || 'Inactive'],
+            contrato: [r.contrato || '-'],
+            nome: getLinhasTextoCanvas(ctx, r.nomeAda || r.nome || '-', colunas[3].largura),
+            endereco: getLinhasTextoCanvas(ctx, [r.enderecoFinal || '-', r.bairroFinal || ''].filter(Boolean).join(' - '), colunas[4].largura),
+            referencia: getLinhasTextoCanvas(ctx, r.pontoRef || '-', colunas[5].largura)
+        }));
+
+        const alturaHeader = 150;
+        const alturaTabelaHeader = 42;
+        const alturaRodape = 40;
+        const alturaLinhas = linhasPorItem.reduce((acc, item) => {
+            const maxLinhas = Math.max(item.onu.length, item.status.length, item.contrato.length, item.nome.length, item.endereco.length, item.referencia.length);
+            return acc + Math.max(36, maxLinhas * 22 + 16);
+        }, 0);
+
+        canvas.width = largura;
+        canvas.height = alturaHeader + alturaTabelaHeader + alturaLinhas + alturaRodape;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const data = new Date().toLocaleDateString('pt-BR');
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const resumo = getResumoResultados();
+
+        ctx.fillStyle = '#1a6b3a';
+        ctx.fillRect(margem, 28, canvas.width - margem * 2, 6);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = 'bold 16px Segoe UI';
+        ctx.fillText('RELATORIO DE CAMPO', margem, 64);
+        ctx.fillStyle = '#1a6b3a';
+        ctx.font = 'bold 34px Segoe UI';
+        ctx.fillText('ONUs Inativas - Intervencao Necessaria', margem, 104);
+        ctx.fillStyle = '#4b5563';
+        ctx.font = '16px Segoe UI';
+        ctx.fillText(`Gerado em ${data} as ${hora}`, margem, 132);
+        ctx.fillText(`${resultados.length} cliente(s) sem sinal | ${resumo.dgi} DGI | ${resumo.perda} perda`, canvas.width - 430, 132);
+
+        const topoTabela = alturaHeader;
+        ctx.fillStyle = '#1a6b3a';
+        ctx.fillRect(margem, topoTabela, canvas.width - margem * 2, alturaTabelaHeader);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Segoe UI';
+        for (const coluna of colunas) {
+            ctx.fillText(coluna.titulo, margem + coluna.x, topoTabela + 26);
+        }
+
+        let y = topoTabela + alturaTabelaHeader;
+        ctx.font = '15px Segoe UI';
+        for (let i = 0; i < resultados.length; i++) {
+            const item = linhasPorItem[i];
+            const maxLinhas = Math.max(item.onu.length, item.status.length, item.contrato.length, item.nome.length, item.endereco.length, item.referencia.length);
+            const alturaLinha = Math.max(36, maxLinhas * 22 + 16);
+
+            ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#f6f8fb';
+            ctx.fillRect(margem, y, canvas.width - margem * 2, alturaLinha);
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.beginPath();
+            ctx.moveTo(margem, y + alturaLinha);
+            ctx.lineTo(canvas.width - margem, y + alturaLinha);
+            ctx.stroke();
+
+            const blocos = [item.onu, item.status, item.contrato, item.nome, item.endereco, item.referencia];
+            blocos.forEach((linhas, idx) => {
+                ctx.fillStyle = idx === 2 ? '#1a6b3a' : '#1f2937';
+                ctx.font = idx === 2 ? 'bold 15px Segoe UI' : '15px Segoe UI';
+                linhas.forEach((linha, linhaIdx) => {
+                    ctx.fillText(linha, margem + colunas[idx].x, y + 24 + linhaIdx * 22);
+                });
+            });
+
+            y += alturaLinha;
+        }
+
+        canvas.toBlob(blob => {
+            if (!blob) {
+                mostrarAlerta('Nao foi possivel gerar a imagem.');
+                return;
+            }
+            baixarBlob(blob, `onus_inativas_${new Date().toISOString().slice(0, 10)}.png`);
+        }, 'image/png');
+    }
+
     function exportarCSV() {
         if (resultados.length === 0) return;
         const header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
@@ -1020,10 +1344,7 @@
         ]);
         const csv = [header, ...rows].map(row => row.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `onus_inativas_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
+        baixarBlob(blob, `onus_inativas_${new Date().toISOString().slice(0, 10)}.csv`);
     }
 
     // ── EXPORTAR PDF ──
@@ -1119,18 +1440,19 @@
 </html>`;
 
         const popup = window.open('', '_blank');
+        if (!popup) {
+            mostrarAlerta('Permita pop-ups para gerar o PDF.');
+            return;
+        }
         popup.document.write(html);
         popup.document.close();
     }
 
     // ── COPIAR ──
     function copiar(texto, btn) {
-        navigator.clipboard.writeText(texto).then(() => {
+        copiarTexto(texto).then(ok => {
             if (btn) {
-                const orig = btn.textContent;
-                btn.textContent = 'copiado!';
-                btn.classList.add('ok');
-                setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 1600);
+                animarBotaoCopiar(btn, ok, 'copiado!', texto, 1600);
             }
         });
     }

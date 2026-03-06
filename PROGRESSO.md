@@ -29,9 +29,12 @@ Fluxo atualmente aprovado:
 - [x] Exibir log de diagnostico
 - [x] Exportar CSV
 - [x] Exportar PDF
+- [x] Exportar imagem PNG
 - [x] Configurar URL do proxy
 - [x] Testar conexao com o proxy
 - [x] Rodar com painel hospedado e proxy local
+- [x] Copiar todos os contratos em lote
+- [x] Retentar pendencias de busca
 
 ## Problemas Resolvidos
 
@@ -44,6 +47,8 @@ Fluxo atualmente aprovado:
 | Regex do contrato nao capturava prefixos | Ajuste para `/_(\\d{4})/` |
 | GitHub Pages usava a URL do site como proxy | Painel passou a assumir `http://localhost:8080` fora de localhost |
 | Proxy PowerShell caia na tela de login do Ada | Proxy deixou de seguir redirect automatico e passou a reaproveitar o corpo da resposta do Ada |
+| Falhas operacionais por proxy offline | Verificacao automatica do proxy no carregamento e antes do processamento |
+| Copia inconsistente em alguns contextos | Funcoes de copia unificadas com fallback |
 
 ## Proximos Passos
 

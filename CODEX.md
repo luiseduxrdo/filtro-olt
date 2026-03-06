@@ -64,10 +64,14 @@ Responsabilidades:
 - log de diagnostico
 - exportacao CSV
 - exportacao PDF
+- exportacao em imagem PNG
+- copia rapida de todos os contratos
+- retentativa de pendencias
 
 Observacoes importantes:
 - quando o painel estiver hospedado, o proxy continua sendo local em `http://localhost:8080`
 - o painel detecta resposta HTML indevida e alerta quando a URL do proxy estiver errada
+- o painel faz verificacao automatica do proxy ao carregar e antes do processamento
 - copia de texto usa fallback compativel com contexto HTTP quando necessario
 
 ### `servidor.ps1`
