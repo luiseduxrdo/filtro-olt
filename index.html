@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -404,6 +404,32 @@
         transition: all 0.15s;
     }
     .btn-help:hover { border-color: #00c47a; color: #00c47a; }
+
+    /* ── MODE TABS ── */
+    .mode-tabs {
+        display: flex;
+        margin-bottom: 14px;
+        border: 1px solid #252b3b;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .mode-tab {
+        flex: 1;
+        background: #13161e;
+        border: none;
+        color: #5a6480;
+        font-family: sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 9px 16px;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        transition: all 0.15s;
+        border-right: 1px solid #252b3b;
+    }
+    .mode-tab:last-child { border-right: none; }
+    .mode-tab.active { background: #1a1f2e; color: #00c47a; border-bottom: 2px solid #00c47a; }
+    .mode-tab:hover:not(.active) { color: #c8d0e0; background: #161b27; }
 </style>
 </head>
 <body>
@@ -475,15 +501,31 @@
         </div>
     </div>
 
-    <!-- TEXTAREAS -->
-    <div class="input-grid">
-        <div class="input-block">
-            <div class="input-label">ONU STATUS <span>onu status gpon X</span></div>
-            <textarea class="textarea" id="olt-status" placeholder="Cole aqui o output do comando: onu status gpon X"></textarea>
+    <!-- MODE SELECTOR -->
+    <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-olt">MODO OLT / PuTTY</button>
+        <button class="mode-tab" id="tab-pppoe">MODO LISTA PPPoE</button>
+    </div>
+
+    <!-- TEXTAREAS OLT -->
+    <div id="area-olt">
+        <div class="input-grid">
+            <div class="input-block">
+                <div class="input-label">ONU STATUS <span>onu status gpon X</span></div>
+                <textarea class="textarea" id="olt-status" placeholder="Cole aqui o output do comando: onu status gpon X"></textarea>
+            </div>
+            <div class="input-block">
+                <div class="input-label">ONU DESCRIPTION <span>onu description show gpon X</span></div>
+                <textarea class="textarea" id="olt-desc" placeholder="Cole aqui o output do comando: onu description show gpon X"></textarea>
+            </div>
         </div>
-        <div class="input-block">
-            <div class="input-label">ONU DESCRIPTION <span>onu description show gpon X</span></div>
-            <textarea class="textarea" id="olt-desc" placeholder="Cole aqui o output do comando: onu description show gpon X"></textarea>
+    </div>
+
+    <!-- TEXTAREA PPPOE -->
+    <div id="area-pppoe" style="display:none">
+        <div class="input-block" style="margin-bottom:14px">
+            <div class="input-label">LISTA PPPoE <span>um por linha</span></div>
+            <textarea class="textarea" id="pppoe-lista" style="height:140px" placeholder="Cole aqui os PPPoEs, um por linha:&#10;2939&#10;6692&#10;7537&#10;&#10;(aceita também: PPPoE_2939nome)"></textarea>
         </div>
     </div>
 
@@ -724,6 +766,20 @@
     proxyInput.addEventListener('blur', () => { testarProxySilencioso(false); });
     setTimeout(() => { testarProxySilencioso(false); }, 250);
 
+    // ── MODO ──
+    let modoAtual = 'olt';
+
+    function setModo(modo) {
+        modoAtual = modo;
+        document.getElementById('tab-olt').classList.toggle('active', modo === 'olt');
+        document.getElementById('tab-pppoe').classList.toggle('active', modo === 'pppoe');
+        document.getElementById('area-olt').style.display = modo === 'olt' ? '' : 'none';
+        document.getElementById('area-pppoe').style.display = modo === 'pppoe' ? '' : 'none';
+    }
+
+    document.getElementById('tab-olt').addEventListener('click', () => setModo('olt'));
+    document.getElementById('tab-pppoe').addEventListener('click', () => setModo('pppoe'));
+
     // ── LOG ──
     const logs = [];
 
@@ -789,6 +845,21 @@
             descs[num] = { descricao, contrato, nome };
         }
         return descs;
+    }
+
+    function parsePPPoE(texto) {
+        const contratos = [];
+        for (const linha of texto.split('\n')) {
+            const t = linha.trim();
+            if (!t) continue;
+            if (/^\d+$/.test(t)) {
+                contratos.push(t);
+            } else {
+                const m = t.match(/_(\d+)/);
+                if (m) contratos.push(m[1]);
+            }
+        }
+        return contratos;
     }
 
     function pillHtml(motivo) {
@@ -920,13 +991,27 @@
     function renderTabela() {
         const area = document.getElementById('result-area');
         if (resultados.length === 0) {
-            area.innerHTML = '<div class="empty">Nenhuma ONU inativa encontrada.</div>';
+            area.innerHTML = '<div class="empty">Nenhum cliente encontrado.</div>';
             return;
         }
 
         const resumo = getResumoResultados();
+        const emPPPoE = modoAtual === 'pppoe';
 
-        const rows = resultados.map((r, i) => `
+        const rows = resultados.map((r, i) => {
+            if (emPPPoE) {
+                return `
+                <tr id="row-${i}">
+                    <td class="td-onu">${esc(r.num)}</td>
+                    <td class="td-contrato">${esc(r.contrato) || '—'}</td>
+                    <td class="td-nome">${esc(r.nomeAda || r.nome) || '—'}</td>
+                    <td class="td-end td-loading" id="end-${i}">buscando...</td>
+                    <td>
+                        ${r.contrato ? `<button class="copy-btn" data-copy="${esc(r.contrato)}">${esc(r.contrato)}</button>` : '—'}
+                    </td>
+                </tr>`;
+            }
+            return `
             <tr id="row-${i}">
                 <td class="td-onu">ONU ${esc(r.num)}</td>
                 <td>${pillHtml(r.motivo)}</td>
@@ -936,19 +1021,28 @@
                 <td>
                     ${r.contrato ? `<button class="copy-btn" data-copy="${esc(r.contrato)}">${esc(r.contrato)}</button>` : '—'}
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
+
+        const thead = emPPPoE
+            ? '<th>#</th><th>CONTRATO</th><th>NOME</th><th>ENDEREÇO</th><th></th>'
+            : '<th>ONU</th><th>STATUS</th><th>CONTRATO</th><th>NOME</th><th>ENDEREÇO</th><th></th>';
+
+        const titulo = emPPPoE ? 'CLIENTES' : 'ONUs INATIVAS';
+
+        const summaryPills = emPPPoE
+            ? `<div class="summary-pill">${resultados.length} clientes</div>
+               <div class="summary-pill">${resumo.pendentes} pendentes</div>`
+            : `<div class="summary-pill">${resumo.dgi} DGI</div>
+               <div class="summary-pill">${resumo.perda} LOAMI/LOFI/LOSI</div>
+               <div class="summary-pill">${resumo.semContrato} sem contrato</div>
+               <div class="summary-pill">${resumo.pendentes} pendentes</div>`;
 
         area.innerHTML = `
             <div class="results-header">
-                <div class="results-title">ONUs INATIVAS</div>
+                <div class="results-title">${titulo}</div>
                 <div class="badge-count">${resultados.length} clientes</div>
-                <div class="summary-bar">
-                    <div class="summary-pill">${resumo.dgi} DGI</div>
-                    <div class="summary-pill">${resumo.perda} LOAMI/LOFI/LOSI</div>
-                    <div class="summary-pill">${resumo.semContrato} sem contrato</div>
-                    <div class="summary-pill">${resumo.pendentes} pendentes</div>
-                </div>
+                <div class="summary-bar">${summaryPills}</div>
                 <div class="export-bar">
                     <button class="btn-export dim" id="btn-copy-all">COPIAR CONTRATOS</button>
                     <button class="btn-export dim" id="btn-retry">RETENTAR FALHAS</button>
@@ -959,10 +1053,7 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr>
-                        <th>ONU</th><th>STATUS</th><th>CONTRATO</th>
-                        <th>NOME</th><th>ENDEREÇO</th><th></th>
-                    </tr></thead>
+                    <thead><tr>${thead}</tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
@@ -1086,6 +1177,51 @@
     }
 
     document.getElementById('btn-processar').addEventListener('click', async () => {
+        if (modoAtual === 'pppoe') {
+            const textoPPPoE = document.getElementById('pppoe-lista').value.trim();
+            if (!textoPPPoE) {
+                mostrarAlerta('Cole a lista de PPPoEs antes de processar.');
+                return;
+            }
+
+            const proxy = getProxyUrl();
+            if (!proxy) {
+                mostrarAlerta('Configure a URL do proxy antes de processar.');
+                return;
+            }
+
+            const proxyOk = await testarProxySilencioso(true);
+            if (!proxyOk) return;
+
+            esconderAlerta();
+            document.getElementById('log-panel').style.display = 'block';
+            document.getElementById('stats').style.display = 'none';
+
+            const contratos = parsePPPoE(textoPPPoE);
+            if (!contratos.length) {
+                mostrarAlerta('Nenhum número válido encontrado. Cole um PPPoE por linha (ex: 2939 ou PPPoE_2939nome).');
+                return;
+            }
+
+            resultados = contratos.map((contrato, i) => ({
+                num: String(i + 1),
+                serial: '',
+                operStatus: '',
+                motivo: '',
+                descricao: contrato,
+                contrato,
+                nome: '',
+                nomeAda: null,
+                enderecoFinal: '',
+                bairroFinal: '',
+                pontoRef: ''
+            }));
+
+            renderTabela();
+            await processarIndices(resultados.map((_, i) => i));
+            return;
+        }
+
         const textoStatus = document.getElementById('olt-status').value.trim();
         const textoDesc = document.getElementById('olt-desc').value.trim();
 
@@ -1179,12 +1315,13 @@
     document.getElementById('btn-limpar').addEventListener('click', () => {
         document.getElementById('olt-status').value = '';
         document.getElementById('olt-desc').value = '';
+        document.getElementById('pppoe-lista').value = '';
         document.getElementById('stats').style.display = 'none';
         document.getElementById('progress').style.display = 'none';
         document.getElementById('log-panel').style.display = 'none';
         document.getElementById('log-content').innerHTML = '';
         logs.length = 0;
-        document.getElementById('result-area').innerHTML = '<div class="empty">Cole os dados do PuTTY e clique em PROCESSAR</div>';
+        document.getElementById('result-area').innerHTML = '<div class="empty">Cole os dados e clique em PROCESSAR</div>';
         resultados = [];
         esconderAlerta();
     });
@@ -1224,7 +1361,15 @@
         const ctx = canvas.getContext('2d');
         const margem = 48;
         const largura = 1600;
-        const colunas = [
+        const emPPPoE = modoAtual === 'pppoe';
+
+        const colunas = emPPPoE ? [
+            { titulo: '#', x: 0, largura: 60 },
+            { titulo: 'CONTRATO', x: 75, largura: 130 },
+            { titulo: 'NOME', x: 220, largura: 440 },
+            { titulo: 'ENDERECO', x: 675, largura: 620 },
+            { titulo: 'REFERENCIA', x: 1310, largura: 240 }
+        ] : [
             { titulo: 'ONU', x: 0, largura: 95 },
             { titulo: 'STATUS', x: 110, largura: 170 },
             { titulo: 'CONTRATO', x: 295, largura: 130 },
@@ -1234,20 +1379,31 @@
         ];
 
         ctx.font = '15px Segoe UI';
-        const linhasPorItem = resultados.map(r => ({
-            onu: [`ONU ${r.num}`],
-            status: [r.motivo || 'Inactive'],
-            contrato: [r.contrato || '-'],
-            nome: getLinhasTextoCanvas(ctx, r.nomeAda || r.nome || '-', colunas[3].largura),
-            endereco: getLinhasTextoCanvas(ctx, [r.enderecoFinal || '-', r.bairroFinal || ''].filter(Boolean).join(' - '), colunas[4].largura),
-            referencia: getLinhasTextoCanvas(ctx, r.pontoRef || '-', colunas[5].largura)
-        }));
+        const linhasPorItem = emPPPoE
+            ? resultados.map(r => ({
+                num: [r.num],
+                contrato: [r.contrato || '-'],
+                nome: getLinhasTextoCanvas(ctx, r.nomeAda || r.nome || '-', colunas[2].largura),
+                endereco: getLinhasTextoCanvas(ctx, [r.enderecoFinal || '-', r.bairroFinal || ''].filter(Boolean).join(' - '), colunas[3].largura),
+                referencia: getLinhasTextoCanvas(ctx, r.pontoRef || '-', colunas[4].largura)
+            }))
+            : resultados.map(r => ({
+                onu: [`ONU ${r.num}`],
+                status: [r.motivo || 'Inactive'],
+                contrato: [r.contrato || '-'],
+                nome: getLinhasTextoCanvas(ctx, r.nomeAda || r.nome || '-', colunas[3].largura),
+                endereco: getLinhasTextoCanvas(ctx, [r.enderecoFinal || '-', r.bairroFinal || ''].filter(Boolean).join(' - '), colunas[4].largura),
+                referencia: getLinhasTextoCanvas(ctx, r.pontoRef || '-', colunas[5].largura)
+            }));
 
         const alturaHeader = 150;
         const alturaTabelaHeader = 42;
         const alturaRodape = 40;
         const alturaLinhas = linhasPorItem.reduce((acc, item) => {
-            const maxLinhas = Math.max(item.onu.length, item.status.length, item.contrato.length, item.nome.length, item.endereco.length, item.referencia.length);
+            const vals = emPPPoE
+                ? [item.num, item.contrato, item.nome, item.endereco, item.referencia]
+                : [item.onu, item.status, item.contrato, item.nome, item.endereco, item.referencia];
+            const maxLinhas = Math.max(...vals.map(v => v.length));
             return acc + Math.max(36, maxLinhas * 22 + 16);
         }, 0);
 
@@ -1268,11 +1424,11 @@
         ctx.fillText('RELATORIO DE CAMPO', margem, 64);
         ctx.fillStyle = '#1a6b3a';
         ctx.font = 'bold 34px Segoe UI';
-        ctx.fillText('ONUs Inativas - Intervenção Necessária', margem, 104);
+        ctx.fillText(emPPPoE ? 'Clientes — Consulta de Endereços' : 'ONUs Inativas - Intervenção Necessária', margem, 104);
         ctx.fillStyle = '#4b5563';
         ctx.font = '16px Segoe UI';
         ctx.fillText(`Gerado em ${data} as ${hora}`, margem, 132);
-        ctx.fillText(`${resultados.length} cliente(s) sem sinal | ${resumo.dgi} DGI | ${resumo.perda} perda`, canvas.width - 430, 132);
+        ctx.fillText(emPPPoE ? `${resultados.length} cliente(s)` : `${resultados.length} cliente(s) sem sinal | ${resumo.dgi} DGI | ${resumo.perda} perda`, canvas.width - 430, 132);
 
         const topoTabela = alturaHeader;
         ctx.fillStyle = '#1a6b3a';
@@ -1285,9 +1441,13 @@
 
         let y = topoTabela + alturaTabelaHeader;
         ctx.font = '15px Segoe UI';
+        const contratoIdx = emPPPoE ? 1 : 2;
         for (let i = 0; i < resultados.length; i++) {
             const item = linhasPorItem[i];
-            const maxLinhas = Math.max(item.onu.length, item.status.length, item.contrato.length, item.nome.length, item.endereco.length, item.referencia.length);
+            const vals = emPPPoE
+                ? [item.num, item.contrato, item.nome, item.endereco, item.referencia]
+                : [item.onu, item.status, item.contrato, item.nome, item.endereco, item.referencia];
+            const maxLinhas = Math.max(...vals.map(v => v.length));
             const alturaLinha = Math.max(36, maxLinhas * 22 + 16);
 
             ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#f6f8fb';
@@ -1298,10 +1458,9 @@
             ctx.lineTo(canvas.width - margem, y + alturaLinha);
             ctx.stroke();
 
-            const blocos = [item.onu, item.status, item.contrato, item.nome, item.endereco, item.referencia];
-            blocos.forEach((linhas, idx) => {
-                ctx.fillStyle = idx === 2 ? '#1a6b3a' : '#1f2937';
-                ctx.font = idx === 2 ? 'bold 15px Segoe UI' : '15px Segoe UI';
+            vals.forEach((linhas, idx) => {
+                ctx.fillStyle = idx === contratoIdx ? '#1a6b3a' : '#1f2937';
+                ctx.font = idx === contratoIdx ? 'bold 15px Segoe UI' : '15px Segoe UI';
                 linhas.forEach((linha, linhaIdx) => {
                     ctx.fillText(linha, margem + colunas[idx].x, y + 24 + linhaIdx * 22);
                 });
@@ -1310,29 +1469,43 @@
             y += alturaLinha;
         }
 
+        const prefixoImg = emPPPoE ? 'clientes' : 'onus_inativas';
         canvas.toBlob(blob => {
             if (!blob) {
                 mostrarAlerta('Nao foi possivel gerar a imagem.');
                 return;
             }
-            baixarBlob(blob, `onus_inativas_${new Date().toISOString().slice(0, 10)}.png`);
+            baixarBlob(blob, `${prefixoImg}_${new Date().toISOString().slice(0, 10)}.png`);
         }, 'image/png');
     }
-
     function exportarCSV() {
         if (resultados.length === 0) return;
-        const header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
-        const rows = resultados.map(r => [
-            `ONU ${r.num}`, r.serial, r.motivo,
-            r.contrato || '',
-            r.nomeAda || r.nome || '',
-            r.enderecoFinal || '',
-            r.bairroFinal || '',
-            r.pontoRef || ''
-        ]);
+        let header, rows;
+        if (modoAtual === 'pppoe') {
+            header = ['#', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
+            rows = resultados.map(r => [
+                r.num,
+                r.contrato || '',
+                r.nomeAda || r.nome || '',
+                r.enderecoFinal || '',
+                r.bairroFinal || '',
+                r.pontoRef || ''
+            ]);
+        } else {
+            header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
+            rows = resultados.map(r => [
+                `ONU ${r.num}`, r.serial, r.motivo,
+                r.contrato || '',
+                r.nomeAda || r.nome || '',
+                r.enderecoFinal || '',
+                r.bairroFinal || '',
+                r.pontoRef || ''
+            ]);
+        }
         const csv = [header, ...rows].map(row => row.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        baixarBlob(blob, `onus_inativas_${new Date().toISOString().slice(0, 10)}.csv`);
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const prefixo = modoAtual === 'pppoe' ? 'clientes' : 'onus_inativas';
+        baixarBlob(blob, `${prefixo}_${new Date().toISOString().slice(0, 10)}.csv`);
     }
 
     // ── EXPORTAR PDF ──
@@ -1341,9 +1514,9 @@
 
         const data = new Date().toLocaleDateString('pt-BR');
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const emPPPoE = modoAtual === 'pppoe';
 
         const linhas = resultados.map((r, i) => {
-            const status = r.motivo || 'Inactive';
             const contrato = r.contrato || '—';
             const nome = r.nomeAda || r.nome || '—';
             const end = r.enderecoFinal || '—';
@@ -1351,6 +1524,21 @@
             const ref = r.pontoRef || '';
             const endCompleto = [end, bairro].filter(Boolean).join(' — ');
             const refLinha = ref ? `<div style="font-size:11px;color:#888;margin-top:2px">Ref: ${esc(ref)}</div>` : '';
+
+            if (emPPPoE) {
+                return `
+                <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:12px;color:#666;white-space:nowrap">${esc(r.num)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:700;color:#1a6b3a;font-size:15px;white-space:nowrap">${esc(contrato)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:600;color:#222">${esc(nome)}</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #eee;color:#444">
+                        ${esc(endCompleto)}
+                        ${refLinha}
+                    </td>
+                </tr>`;
+            }
+
+            const status = r.motivo || 'Inactive';
             const statusCor = status.includes('DGI') ? '#c0392b' : '#e67e22';
             return `
                 <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'};">
@@ -1370,11 +1558,36 @@
         const dgiCount = resultados.filter(r => r.motivo && r.motivo.includes('DGI')).length;
         const loamiCount = resultados.filter(r => r.motivo && (r.motivo.includes('LOAMI') || r.motivo.includes('LOFI'))).length;
 
+        const theadOlt = `
+            <tr style="background:#1a6b3a;color:#fff">
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600;white-space:nowrap">ONU</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">STATUS</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">CONTRATO</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">NOME</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDEREÇO</th>
+            </tr>`;
+        const theadPPPoE = `
+            <tr style="background:#1a6b3a;color:#fff">
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600;white-space:nowrap">#</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">CONTRATO</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">NOME</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDEREÇO</th>
+            </tr>`;
+
+        const tituloPDF = emPPPoE ? 'Clientes — Consulta de Endereços' : 'ONUs Inativas — Intervenção Necessária';
+        const tituloHTML = emPPPoE ? `Clientes — ${data}` : `ONUs Inativas — ${data}`;
+        const subtituloPDF = emPPPoE
+            ? `<strong style="color:#1a6b3a">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong>`
+            : `<strong style="color:#c0392b">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong> sem sinal`;
+        const rodapePDF = emPPPoE
+            ? `<span>Filtro OLT — ISP Field Tool</span>`
+            : `<span>Filtro OLT — ISP Field Tool</span><span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>`;
+
         const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>ONUs Inativas — ${data}</title>
+<title>${tituloHTML}</title>
 <style>
     @page { size: A4 landscape; margin: 12mm; }
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -1401,28 +1614,19 @@
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #1a6b3a">
     <div>
         <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Relatório de Campo</div>
-        <h1 style="font-size:22px;color:#1a6b3a;font-weight:700">ONUs Inativas — Intervenção Necessária</h1>
+        <h1 style="font-size:22px;color:#1a6b3a;font-weight:700">${tituloPDF}</h1>
     </div>
     <div style="text-align:right;font-size:12px;color:#888;line-height:1.6">
         <div>Gerado em ${data} às ${hora}</div>
-        <div style="margin-top:4px"><strong style="color:#c0392b">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong> sem sinal</div>
+        <div style="margin-top:4px">${subtituloPDF}</div>
     </div>
 </div>
 <table style="width:100%;border-collapse:collapse">
-    <thead>
-        <tr style="background:#1a6b3a;color:#fff">
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600;white-space:nowrap">ONU</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">STATUS</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">CONTRATO</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">NOME</th>
-            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:1px;font-weight:600">ENDEREÇO</th>
-        </tr>
-    </thead>
+    <thead>${emPPPoE ? theadPPPoE : theadOlt}</thead>
     <tbody>${linhas}</tbody>
 </table>
 <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;display:flex;justify-content:space-between">
-    <span>Filtro OLT — ISP Field Tool</span>
-    <span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>
+    ${rodapePDF}
 </div>
 </body>
 </html>`;
@@ -1435,7 +1639,6 @@
         popup.document.write(html);
         popup.document.close();
     }
-
     // ── COPIAR ──
     function copiar(texto, btn) {
         copiarTexto(texto).then(ok => {
