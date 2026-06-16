@@ -1,153 +1,149 @@
-# Filtro OLT - ISP Field Tool
+# Filtro Clientes ADA
 
-## Estado Atual
+Painel web interno para operacao de ISP. Centraliza tres fluxos de trabalho: identificacao de ONUs inativas via OLT, consulta de enderecos por lista de contratos PPPoE, e busca de clientes por numero de telefone.
 
-Projeto web definitivo para operacao interna de ISP.
+## Arquitetura
 
-Arquitetura atual:
-- `index.html`: painel web estatico para uso no navegador
-- `servidor.ps1`: proxy local em PowerShell na porta `8080`
+- `index.html` — painel web estatico, roda no navegador
+- `servidor.ps1` — proxy local em PowerShell na porta `8080`
 
-Fluxo validado:
-1. Abrir o painel hospedado no GitHub Pages ou Vercel
-2. Iniciar o proxy local com PowerShell
-3. Colar os outputs de `onu status gpon X` e `onu description show gpon X`
-4. Processar os dados
-5. Buscar contrato, nome e endereco no Ada
-6. Exportar CSV ou PDF para a equipe de campo
+O painel e hospedado (GitHub Pages, Vercel ou servidor local com `python -m http.server 3000`). O proxy roda na maquina do operador e faz a ponte com o Ada, que so e acessivel pela rede interna.
 
-## Objetivo
+## Modos de Operacao
 
-Automatizar a identificacao de clientes sem sinal apos incidentes de rede, principalmente quando ha rompimento de drops de fibra ou outras ocorrencias de campo.
+### Modo OLT / PuTTY
 
-Antes da ferramenta, o processo era manual:
-1. Tirar output da OLT no PuTTY
-2. Cruzar status e descricao manualmente
-3. Abrir o Ada contrato por contrato
-4. Montar a lista manual para a equipe externa
+Identifica clientes sem sinal apos incidentes de rede.
 
-Hoje o painel faz esse fluxo quase inteiro.
+Fluxo:
+1. Colar output de `onu status gpon X` no campo STATUS
+2. Colar output de `onu description show gpon X` no campo DESCRIPTION
+3. Clicar em PROCESSAR
+4. O painel cruza os dois outputs, filtra ONUs inativas e busca contrato, nome e endereco no Ada
+
+### Modo Lista PPPoE
+
+Consulta enderecos de uma lista de contratos conhecidos.
+
+Fluxo:
+1. Colar contratos no campo (um por linha, aceita numeros puros ou formato `PPPoE_2939nome`)
+2. Clicar em PROCESSAR
+3. O painel busca nome e endereco de cada contrato no Ada
+
+### Modo Busca por Telefone
+
+Localiza um cliente pelo numero de telefone (ou parte dele).
+
+Fluxo:
+1. Digitar ao menos 4 digitos no campo de telefone
+2. Clicar em BUSCAR (ou pressionar Enter)
+3. O painel faz uma varredura em duas fases:
+   - **Fase 1** — coleta todos os IDs de clientes cadastrados no Ada (paginado, 200 por vez)
+   - **Fase 2** — busca o cadastro completo de cada cliente em paralelo (8 requisicoes simultaneas) e filtra quem tem aquela sequencia em `TelefonePrincipal` ou `TelefoneAlternativo`
+4. Resultados aparecem na tela conforme sao encontrados, com telefone e endereco
+5. O botao vira PARAR durante a varredura — clicar cancela
+
+> A busca por telefone nao usa o `sSearch` do Ada (que so indexa Nome e CPF). Ela acessa o cadastro individual de cada cliente, o mesmo endpoint usado para buscar o endereco nos outros modos.
 
 ## Infraestrutura
 
 ### OLT
 - Equipamento: Intelbras OLT
-- Comandos usados:
-  - `onu status gpon X`
-  - `onu description show gpon X`
+- Comandos: `onu status gpon X` e `onu description show gpon X`
 
 ### Ada
 - Sistema legado PHP
 - URL interna: `http://192.168.111.245/ISP/AdaProvider/`
-- Acesso apenas pela rede interna
-- Sem acesso ao codigo-fonte do Ada
+- Sem acesso ao codigo-fonte
+- Acesso apenas pela rede interna / VPN
 
-Endpoints usados:
-- `GET gateway/Clientes.dataprovider.php`
-  - parametro principal: `sSearch`
-  - retorna dados no formato DataTables
-- `POST controller/ClienteController.php`
-  - body: `call=carregarClienteAction&IdCliente=X`
-  - retorna dados completos do cliente em JSON
+## Endpoints do Proxy
 
-## Arquivos do Projeto
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| GET | `/health` | Verifica se o proxy esta ativo |
+| GET | `/clientes?sSearch=X&iDisplayStart=0&iDisplayLength=100` | Lista clientes via DataTables do Ada |
+| POST | `/cadastro` | Carrega cadastro completo de um cliente por `IdCliente` |
 
-### `index.html`
-Painel web principal.
-
-Responsabilidades:
-- onboarding com comando para iniciar o proxy local
-- configuracao da URL do proxy com persistencia em `localStorage`
-- parse dos outputs da OLT
-- filtragem de ONUs inativas
-- busca no Ada via proxy local
-- log de diagnostico
-- exportacao CSV
-- exportacao PDF
-- exportacao em imagem PNG
-- copia rapida de todos os contratos
-- retentativa de pendencias
-
-Observacoes importantes:
-- quando o painel estiver hospedado, o proxy continua sendo local em `http://localhost:8080`
-- o painel detecta resposta HTML indevida e alerta quando a URL do proxy estiver errada
-- o painel faz verificacao automatica do proxy ao carregar e antes do processamento
-- copia de texto usa fallback compativel com contexto HTTP quando necessario
-
-### `servidor.ps1`
-Proxy local oficial do projeto.
-
-Responsabilidades:
-- expor `GET /health`
-- expor `GET /clientes`
-- expor `POST /cadastro`
-- fazer a ponte entre o navegador e o Ada
-- liberar CORS para o painel hospedado
-
-Observacoes importantes:
-- usa PowerShell nativo, sem Node.js nem npm
-- desabilita proxy do Windows para falar direto com o Ada
-- nao segue automaticamente o redirect do Ada, porque o sistema devolve JSON util no corpo da resposta `302`
-
-## Regras de Negocio
-
-### Descricao da ONU
-Padrao esperado: `PREFIXO_1234nome`
-
-Exemplos:
-```text
-ONU_6692manoel
-PPPoE_2939antonio
-CMDT_7537cicera
-```
-
-Regex de contrato:
-```js
-/_(\d{4})/
-```
-
-### Status considerados
-- `Inactive`
-- motivos tipicos: `DGI`, `LOAMI`, `LOFI`, `LOSI`
+O `/clientes` repassa `sSearch`, `iDisplayStart` e `iDisplayLength` para `gateway/Clientes.dataprovider.php`. O `/cadastro` repassa o body para `controller/ClienteController.php` com `call=carregarClienteAction`.
 
 ## Estrutura de Dados
 
-Exemplo de objeto interno:
+Objeto interno por cliente:
 
 ```js
 {
   num: "1",
-  serial: "5B1AAE32",
-  operStatus: "Inactive",
-  motivo: "DGI",
+  serial: "5B1AAE32",       // OLT apenas
+  operStatus: "Inactive",   // OLT apenas
+  motivo: "DGI",            // OLT apenas
   descricao: "ONU_6692manoel",
   contrato: "6692",
   nome: "manoel",
   nomeAda: "MANOEL CARLOS LEITE PESSOA - FTTH",
   idCliente: "5688",
+  telefonePrincipal: "(81) 9357-2190",   // telefone apenas
+  telefoneAlternativo: "",               // telefone apenas
   enderecoFinal: "LOT NSA SRA CARMO, PROJETO",
   bairroFinal: "PROJETO",
   pontoRef: "VIZINHO CASA NANDO"
 }
 ```
 
+## Regras de Negocio
+
+### Descricao da ONU (modo OLT)
+
+Padrao esperado: `PREFIXO_1234nome`
+
+Exemplos:
+```
+ONU_6692manoel
+PPPoE_2939antonio
+CMDT_7537cicera
+```
+
+Regex de extracao do contrato: `/_(\d{4})/`
+
+### Busca por telefone
+
+- Stripa caracteres nao numericos antes de comparar (tanto na busca quanto nos campos do Ada)
+- Compara com `String.includes()` — busca parcial em qualquer posicao
+- Minimo de 4 digitos para evitar varredura com termo muito generico
+- Concorrencia de 8 requisicoes simultaneas ao `/cadastro`
+
+### Status considerados inativos (modo OLT)
+
+- `Inactive`
+- Motivos tipicos: `DGI`, `LOAMI`, `LOFI`, `LOSI`
+
+## Exportacao
+
+Todos os modos suportam:
+- **CSV** — exporta os dados da tabela atual
+- **IMG** — gera PNG com layout de relatorio de campo
+- **PDF** — abre janela com HTML formatado para impressao / salvar como PDF
+- **Copiar contratos** — copia todos os numeros de contrato para a area de transferencia
+
+## Inicializacao
+
+```powershell
+# Iniciar o proxy (deixar janela aberta)
+powershell -ExecutionPolicy Bypass -File servidor.ps1
+
+# Servir o painel localmente (opcional)
+python -m http.server 3000
+```
+
+Ou via comando de onboarding disponivel no proprio painel (botao "Como usar").
+
 ## Decisoes de Design
 
-- solucao principal: painel web hospedado + proxy PowerShell local
-- sem dependencia de Node.js
-- sem dependencia de Tampermonkey
-- sem alteracoes no Ada
-- log de diagnostico visivel durante o processamento
-- PDF gerado por HTML + `window.print()`
-- comparacao de contrato feita de forma exata
-
-## Pendencias Atuais
-
-- exportacao como imagem
-- painel unificado com outras ferramentas do ISP
-
-## Historico Relevante
-
-- a versao Tampermonkey foi descontinuada
-- o proxy Node.js foi descontinuado
-- o nome oficial da documentacao do projeto passou a ser `CODEX.md`
+- Sem dependencia de Node.js, npm ou extensoes de navegador
+- Proxy em PowerShell nativo usa `System.Net.HttpListener` e `HttpWebRequest`
+- Proxy desabilita proxy do Windows (`$req.Proxy = $null`) para falar direto com o Ada
+- Proxy nao segue redirects automaticamente (`AllowAutoRedirect = $false`) — o Ada retorna JSON util no corpo do `302`
+- PDF gerado via `window.print()` em popup HTML, sem bibliotecas externas
+- Imagem gerada via Canvas API no browser
+- Comparacao de contrato no modo OLT e PPPoE e exata (campo `row[0]` do DataTables)
+- Busca por telefone e parcial e case-insensitive por natureza (so digits)

@@ -102,7 +102,9 @@ while ($listener.IsListening) {
             $qs = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)
             $sSearch = $qs['sSearch']
             if (-not $sSearch) { $sSearch = '' }
-            $url = $adaBase + 'gateway/Clientes.dataprovider.php?sSearch=' + [System.Uri]::EscapeDataString($sSearch) + '&iDisplayStart=0&iDisplayLength=100&sEcho=1&iColumns=6'
+            $iDisplayStart  = $qs['iDisplayStart'];  if (-not $iDisplayStart)  { $iDisplayStart  = '0'   }
+            $iDisplayLength = $qs['iDisplayLength']; if (-not $iDisplayLength) { $iDisplayLength = '100' }
+            $url = $adaBase + 'gateway/Clientes.dataprovider.php?sSearch=' + [System.Uri]::EscapeDataString($sSearch) + '&iDisplayStart=' + $iDisplayStart + '&iDisplayLength=' + $iDisplayLength + '&sEcho=1&iColumns=6'
             $body = Invoke-AdaRequest $url
         }
         elseif ($path -eq '/cadastro') {

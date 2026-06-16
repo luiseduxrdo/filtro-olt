@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Filtro OLT — Filtragem GPON</title>
+<title>Filtro Clientes ADA</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -437,7 +437,7 @@
 <!-- HEADER -->
 <header class="app-header">
     <div class="badge">OLT</div>
-    <h1>Monitor GPON — Filtragem Automática</h1>
+    <h1>Filtro Clientes ADA</h1>
     <button class="btn-help" id="btn-ajuda">Como usar</button>
     <span class="version">v2.0 web</span>
 </header>
@@ -505,6 +505,7 @@
     <div class="mode-tabs">
         <button class="mode-tab active" id="tab-olt">MODO OLT / PuTTY</button>
         <button class="mode-tab" id="tab-pppoe">MODO LISTA PPPoE</button>
+        <button class="mode-tab" id="tab-telefone">BUSCA POR TELEFONE</button>
     </div>
 
     <!-- TEXTAREAS OLT -->
@@ -526,6 +527,19 @@
         <div class="input-block" style="margin-bottom:14px">
             <div class="input-label">LISTA PPPoE <span>um por linha</span></div>
             <textarea class="textarea" id="pppoe-lista" style="height:140px" placeholder="Cole aqui os PPPoEs, um por linha:&#10;2939&#10;6692&#10;7537&#10;&#10;(aceita também: PPPoE_2939nome)"></textarea>
+        </div>
+    </div>
+
+    <!-- BUSCA TELEFONE -->
+    <div id="area-telefone" style="display:none">
+        <div class="input-block" style="margin-bottom:14px">
+            <div class="input-label">BUSCA POR TELEFONE <span>parcial — ex: 98765</span></div>
+            <div style="padding:12px;display:flex;gap:8px;align-items:center">
+                <input type="text" class="proxy-input" id="telefone-input"
+                       placeholder="Digite o número ou parte dele..."
+                       style="flex:1;max-width:340px">
+                <button class="btn btn-primary" id="btn-buscar-telefone">BUSCAR</button>
+            </div>
         </div>
     </div>
 
@@ -773,12 +787,16 @@
         modoAtual = modo;
         document.getElementById('tab-olt').classList.toggle('active', modo === 'olt');
         document.getElementById('tab-pppoe').classList.toggle('active', modo === 'pppoe');
+        document.getElementById('tab-telefone').classList.toggle('active', modo === 'telefone');
         document.getElementById('area-olt').style.display = modo === 'olt' ? '' : 'none';
         document.getElementById('area-pppoe').style.display = modo === 'pppoe' ? '' : 'none';
+        document.getElementById('area-telefone').style.display = modo === 'telefone' ? '' : 'none';
+        document.getElementById('btn-processar').style.display = modo === 'telefone' ? 'none' : '';
     }
 
     document.getElementById('tab-olt').addEventListener('click', () => setModo('olt'));
     document.getElementById('tab-pppoe').addEventListener('click', () => setModo('pppoe'));
+    document.getElementById('tab-telefone').addEventListener('click', () => setModo('telefone'));
 
     // ── LOG ──
     const logs = [];
@@ -960,7 +978,9 @@
                 cidade: r.CidadeInst || '',
                 pontoRef: r.PontoRefInst || '',
                 grupo: r.GrupoAutenticacao || '',
-                bloqueado: r.GrupoAutenticacao && r.GrupoAutenticacao.toUpperCase().includes('BLOQUEADO')
+                bloqueado: r.GrupoAutenticacao && r.GrupoAutenticacao.toUpperCase().includes('BLOQUEADO'),
+                telefonePrincipal: r.TelefonePrincipal || '',
+                telefoneAlternativo: r.TelefoneAlternativo || ''
             };
         } catch (e) {
             log('ERR', `[cadastro] falha para IdCliente=${idCliente}: ${e.message}`);
@@ -970,6 +990,7 @@
 
     // ── RESULTADOS ──
     let resultados = [];
+    let buscaTelefoneAtiva = false;
     const MAX_CONCURRENT_REQUESTS = 3;
 
     function getResumoResultados() {
@@ -996,16 +1017,25 @@
         }
 
         const resumo = getResumoResultados();
-        const emPPPoE = modoAtual === 'pppoe';
+        const emPPPoE = modoAtual === 'pppoe' || modoAtual === 'telefone';
+        const emTelefone = modoAtual === 'telefone';
 
         const rows = resultados.map((r, i) => {
             if (emPPPoE) {
+                const addrContent = r.enderecoFinal
+                    ? esc(r.enderecoFinal) + (r.pontoRef ? '<br><small style="color:#3a4565">Ref: ' + esc(r.pontoRef) + '</small>' : '')
+                    : 'buscando...';
+                const addrClass = r.enderecoFinal ? 'td-end td-ok' : 'td-end td-loading';
+                const telCell = emTelefone
+                    ? `<td class="td-ok" style="white-space:nowrap;font-size:12px;font-family:sans-serif">${esc(r.telefonePrincipal || '—')}${r.telefoneAlternativo ? '<br><small style="color:#5a6480">' + esc(r.telefoneAlternativo) + '</small>' : ''}</td>`
+                    : '';
                 return `
                 <tr id="row-${i}">
                     <td class="td-onu">${esc(r.num)}</td>
                     <td class="td-contrato">${esc(r.contrato) || '—'}</td>
                     <td class="td-nome">${esc(r.nomeAda || r.nome) || '—'}</td>
-                    <td class="td-end td-loading" id="end-${i}">buscando...</td>
+                    ${telCell}
+                    <td class="${addrClass}" id="end-${i}">${addrContent}</td>
                     <td>
                         ${r.contrato ? `<button class="copy-btn" data-copy="${esc(r.contrato)}">${esc(r.contrato)}</button>` : '—'}
                     </td>
@@ -1025,10 +1055,10 @@
         }).join('');
 
         const thead = emPPPoE
-            ? '<th>#</th><th>CONTRATO</th><th>NOME</th><th>ENDEREÇO</th><th></th>'
+            ? `<th>#</th><th>CONTRATO</th><th>NOME</th>${emTelefone ? '<th>TELEFONE</th>' : ''}<th>ENDEREÇO</th><th></th>`
             : '<th>ONU</th><th>STATUS</th><th>CONTRATO</th><th>NOME</th><th>ENDEREÇO</th><th></th>';
 
-        const titulo = emPPPoE ? 'CLIENTES' : 'ONUs INATIVAS';
+        const titulo = modoAtual === 'telefone' ? 'CLIENTES ENCONTRADOS' : (emPPPoE ? 'CLIENTES' : 'ONUs INATIVAS');
 
         const summaryPills = emPPPoE
             ? `<div class="summary-pill">${resultados.length} clientes</div>
@@ -1107,9 +1137,16 @@
         }
 
         try {
-            const { idCliente, nomeAda } = await buscarIdCliente(r.contrato);
-            if (nomeAda) resultados[i].nomeAda = nomeAda;
+            let idCliente = r.idCliente || null;
+            let nomeAda = r.nomeAda || null;
 
+            if (!idCliente) {
+                const res = await buscarIdCliente(r.contrato);
+                idCliente = res.idCliente;
+                nomeAda = res.nomeAda || nomeAda;
+            }
+
+            if (nomeAda) resultados[i].nomeAda = nomeAda;
             const nomeEl = document.querySelector(`#row-${i} .td-nome`);
             if (nomeEl && nomeAda) nomeEl.textContent = nomeAda;
 
@@ -1166,6 +1203,137 @@
         animarBotaoCopiar(btn, ok, 'copiado!', 'COPIAR CONTRATOS', 1600);
     }
 
+    async function buscarPorTelefone() {
+        // Botão age como PARAR se busca estiver ativa
+        if (buscaTelefoneAtiva) {
+            buscaTelefoneAtiva = false;
+            document.getElementById('btn-buscar-telefone').textContent = 'BUSCAR';
+            return;
+        }
+
+        const telefoneRaw = document.getElementById('telefone-input').value.trim();
+        const telefoneBusca = telefoneRaw.replace(/\D/g, '');
+
+        if (telefoneBusca.length < 4) {
+            mostrarAlerta('Digite ao menos 4 dígitos para buscar.');
+            return;
+        }
+
+        const proxy = getProxyUrl();
+        if (!proxy) {
+            mostrarAlerta('Configure a URL do proxy antes de processar.');
+            return;
+        }
+
+        const proxyOk = await testarProxySilencioso(true);
+        if (!proxyOk) return;
+
+        esconderAlerta();
+        buscaTelefoneAtiva = true;
+        document.getElementById('btn-buscar-telefone').textContent = 'PARAR';
+        document.getElementById('log-panel').style.display = 'block';
+        document.getElementById('stats').style.display = 'none';
+        resultados = [];
+
+        const progEl = document.getElementById('progress');
+        const progTxt = document.getElementById('progress-txt');
+        const progFill = document.getElementById('progress-fill');
+        progEl.style.display = 'block';
+        progFill.style.width = '0%';
+
+        // Fase 1: coletar todos os IDs de clientes
+        log('INFO', `[telefone] coletando lista de clientes...`);
+        const allClients = [];
+        const pageSize = 200;
+        let start = 0;
+
+        try {
+            while (true) {
+                progTxt.textContent = `Coletando lista: ${allClients.length} clientes...`;
+                const params = new URLSearchParams({ sSearch: '', iDisplayStart: start, iDisplayLength: pageSize });
+                const json = await fetchJson(`${proxy}/clientes?${params}`);
+                for (const row of (json.aaData || [])) {
+                    const mId = String(row[5] || '').match(/data-id="(\d+)"/i);
+                    if (mId) {
+                        allClients.push({
+                            idCliente: mId[1],
+                            contrato: String(row[0] || '').trim(),
+                            nome: String(row[1] || '').trim()
+                        });
+                    }
+                }
+                if (!json.aaData || json.aaData.length < pageSize) break;
+                start += pageSize;
+            }
+        } catch (e) {
+            log('ERR', `[telefone] erro ao coletar clientes: ${e.message}`);
+            mostrarAlerta(`Erro ao coletar clientes: ${e.message}`);
+            buscaTelefoneAtiva = false;
+            document.getElementById('btn-buscar-telefone').textContent = 'BUSCAR';
+            progEl.style.display = 'none';
+            return;
+        }
+
+        log('INFO', `[telefone] ${allClients.length} clientes na base. Varrendo por "${telefoneRaw}"...`);
+        document.getElementById('result-area').innerHTML = '<div class="empty">Varrendo cadastros...</div>';
+
+        // Fase 2: varredura paralela — busca cadastro de cada cliente e filtra pelo telefone
+        const encontrados = [];
+        const fila = allClients.slice();
+        let processados = 0;
+        const CONCORRENCIA = 8;
+
+        const workers = Array.from({ length: Math.min(CONCORRENCIA, fila.length) }, async () => {
+            while (fila.length && buscaTelefoneAtiva) {
+                const client = fila.shift();
+                processados++;
+
+                progTxt.textContent = `Varrendo: ${processados}/${allClients.length} | ${encontrados.length} encontrado(s)`;
+                progFill.style.width = Math.round((processados / allClients.length) * 100) + '%';
+
+                try {
+                    const dados = await buscarDadosCliente(client.idCliente);
+                    const telPrinc = dados.telefonePrincipal.replace(/\D/g, '');
+                    const telAlt  = dados.telefoneAlternativo.replace(/\D/g, '');
+
+                    if (telPrinc.includes(telefoneBusca) || telAlt.includes(telefoneBusca)) {
+                        encontrados.push({
+                            num: String(encontrados.length + 1),
+                            serial: '', operStatus: '', motivo: '',
+                            descricao: client.contrato,
+                            contrato: client.contrato,
+                            nome: client.nome,
+                            nomeAda: client.nome,
+                            idCliente: client.idCliente,
+                            telefonePrincipal: dados.telefonePrincipal,
+                            telefoneAlternativo: dados.telefoneAlternativo,
+                            enderecoFinal: dados.endereco !== '-' ? dados.endereco : '',
+                            bairroFinal: dados.bairro || '',
+                            pontoRef: dados.pontoRef || ''
+                        });
+                        resultados = encontrados.slice();
+                        renderTabela();
+                    }
+                } catch (e) { /* continua */ }
+            }
+        });
+
+        await Promise.all(workers);
+
+        buscaTelefoneAtiva = false;
+        document.getElementById('btn-buscar-telefone').textContent = 'BUSCAR';
+
+        if (!encontrados.length) {
+            document.getElementById('result-area').innerHTML = '<div class="empty">Nenhum cliente encontrado com esse telefone.</div>';
+            progEl.style.display = 'none';
+        } else {
+            progTxt.textContent = `Concluído! ${encontrados.length} cliente(s) com "${telefoneRaw}"`;
+            setTimeout(() => { progEl.style.display = 'none'; }, 3000);
+        }
+
+        log(encontrados.length ? 'OK' : 'WARN', `[telefone] ${encontrados.length} resultado(s) para "${telefoneRaw}"`);
+    }
+
     async function retentarFalhas() {
         const indices = getIndicesPendentes();
         if (!indices.length) {
@@ -1175,6 +1343,11 @@
         esconderAlerta();
         await processarIndices(indices);
     }
+
+    document.getElementById('btn-buscar-telefone').addEventListener('click', buscarPorTelefone);
+    document.getElementById('telefone-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') buscarPorTelefone();
+    });
 
     document.getElementById('btn-processar').addEventListener('click', async () => {
         if (modoAtual === 'pppoe') {
@@ -1316,6 +1489,7 @@
         document.getElementById('olt-status').value = '';
         document.getElementById('olt-desc').value = '';
         document.getElementById('pppoe-lista').value = '';
+        document.getElementById('telefone-input').value = '';
         document.getElementById('stats').style.display = 'none';
         document.getElementById('progress').style.display = 'none';
         document.getElementById('log-panel').style.display = 'none';
