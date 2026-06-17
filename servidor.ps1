@@ -40,7 +40,7 @@ function Invoke-AdaLogin($username, $pws) {
     $r2.Proxy = $null
     $r2.CookieContainer = $cc
     $r2.Headers.Add('X-Requested-With', 'XMLHttpRequest')
-    $r2.Headers.Add('Referer', $adaBase)
+    $r2.Referer = $adaBase
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($loginBody)
     $r2.ContentLength = $bytes.Length
     $s = $r2.GetRequestStream()
@@ -194,6 +194,8 @@ while ($listener.IsListening) {
         $res.StatusCode = 502
         $errMsg = $_.Exception.Message -replace '"', ''
         $body = '{"error":"' + $errMsg + '"}'
+        $ts = [datetime]::Now.ToString('HH:mm:ss')
+        Write-Host "  [$ts] ERRO 502  $path  ->  $errMsg" -ForegroundColor Red
     }
 
     $buf = [System.Text.Encoding]::UTF8.GetBytes($body)
