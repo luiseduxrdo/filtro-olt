@@ -1,6 +1,6 @@
 # Filtro Clientes ADA
 
-Painel web interno para operacao de ISP. Centraliza tres fluxos de trabalho: identificacao de ONUs inativas via OLT, consulta de enderecos por lista de contratos PPPoE, e busca de clientes por numero de telefone.
+Painel web interno para operacao de ISP. Centraliza cinco fluxos de trabalho: identificacao de ONUs inativas via OLT, consulta de enderecos por lista de contratos PPPoE, busca de clientes por telefone, busca por endereco e consulta de ficha completa do cliente.
 
 ## Arquitetura
 
@@ -45,6 +45,41 @@ Fluxo:
 
 > A busca por telefone nao usa o `sSearch` do Ada (que so indexa Nome e CPF). Ela acessa o cadastro individual de cada cliente, o mesmo endpoint usado para buscar o endereco nos outros modos.
 
+### Modo Busca por Endereco
+
+Localiza clientes por qualquer parte do endereco registrado: logradouro, numero, bairro, cidade, ponto de referencia ou CEP.
+
+Fluxo:
+1. Digitar ao menos 2 caracteres no campo (ex: `Casa Azul`, `Centro`, `69000-000`)
+2. Clicar em BUSCAR (ou pressionar Enter)
+3. O painel faz uma varredura identica a busca por telefone:
+   - **Fase 1** — coleta todos os IDs de clientes cadastrados no Ada
+   - **Fase 2** — busca o cadastro completo de cada cliente em paralelo e filtra quem tem o termo em qualquer campo de endereco
+4. Resultados aparecem ao vivo com endereco, referencia e CEP
+5. O botao vira PARAR durante a varredura — clicar cancela
+
+Campos verificados na comparacao: `EnderecoInst`, `NumeroInst`, `BairroInst`, `CidadeInst`, `PontoRefInst`, `CepInst`. A busca e parcial e case-insensitive.
+
+### Ficha do Cliente
+
+Exibe todos os dados cadastrais de um cliente a partir do numero de contrato.
+
+Fluxo:
+1. Digitar o numero do contrato no campo
+2. Clicar em BUSCAR (ou pressionar Enter)
+3. O painel faz duas chamadas em sequencia:
+   - `/clientes?sSearch=contrato` — localiza o `IdCliente`, nome e CPF
+   - `/cadastro` com o `IdCliente` — traz o cadastro completo
+4. Os dados sao exibidos em uma ficha organizada por secoes
+
+Secoes da ficha:
+- **Cabecalho** — nome, contrato, ID e badge de status (ATIVO / BLOQUEADO)
+- **Identificacao** — contrato, CPF, ID Cliente
+- **Acesso** — grupo de autenticacao, status
+- **Endereco** — logradouro, bairro, cidade, CEP, referencia
+- **Contato** — telefone principal, telefone alternativo
+- **Outros dados do sistema** — todos os demais campos retornados pela API, exibidos dinamicamente
+
 ## Infraestrutura
 
 ### OLT
@@ -82,11 +117,12 @@ Objeto interno por cliente:
   nome: "manoel",
   nomeAda: "MANOEL CARLOS LEITE PESSOA - FTTH",
   idCliente: "5688",
-  telefonePrincipal: "(81) 9357-2190",   // telefone apenas
-  telefoneAlternativo: "",               // telefone apenas
+  telefonePrincipal: "(81) 9357-2190",   // telefone e ficha apenas
+  telefoneAlternativo: "",               // telefone e ficha apenas
   enderecoFinal: "LOT NSA SRA CARMO, PROJETO",
   bairroFinal: "PROJETO",
-  pontoRef: "VIZINHO CASA NANDO"
+  pontoRef: "VIZINHO CASA NANDO",
+  cep: "69000-000"                       // endereco e ficha apenas
 }
 ```
 
@@ -112,6 +148,13 @@ Regex de extracao do contrato: `/_(\d{4})/`
 - Minimo de 4 digitos para evitar varredura com termo muito generico
 - Concorrencia de 8 requisicoes simultaneas ao `/cadastro`
 
+### Busca por endereco
+
+- Concatena `EnderecoInst`, `NumeroInst`, `BairroInst`, `CidadeInst`, `PontoRefInst` e `CepInst` em uma string unica para comparacao
+- Compara com `String.includes()` apos `.toLowerCase()` — busca parcial e case-insensitive
+- Minimo de 2 caracteres
+- Concorrencia de 8 requisicoes simultaneas ao `/cadastro`
+
 ### Status considerados inativos (modo OLT)
 
 - `Inactive`
@@ -119,11 +162,13 @@ Regex de extracao do contrato: `/_(\d{4})/`
 
 ## Exportacao
 
-Todos os modos suportam:
-- **CSV** — exporta os dados da tabela atual
+Os modos OLT, PPPoE, Telefone e Endereco suportam:
+- **CSV** — exporta os dados da tabela atual (inclui coluna CEP)
 - **IMG** — gera PNG com layout de relatorio de campo
 - **PDF** — abre janela com HTML formatado para impressao / salvar como PDF
 - **Copiar contratos** — copia todos os numeros de contrato para a area de transferencia
+
+O modo Ficha do Cliente nao tem exportacao — e uma consulta pontual de cadastro.
 
 ## Inicializacao
 
@@ -147,3 +192,5 @@ Ou via comando de onboarding disponivel no proprio painel (botao "Como usar").
 - Imagem gerada via Canvas API no browser
 - Comparacao de contrato no modo OLT e PPPoE e exata (campo `row[0]` do DataTables)
 - Busca por telefone e parcial e case-insensitive por natureza (so digits)
+- Busca por endereco concatena todos os campos de endereco e compara a string inteira — nao requer preenchimento completo
+- Ficha do cliente exibe campos conhecidos em secoes fixas mais todos os campos extras retornados pela API dinamicamente, sem necessidade de mapear cada campo individualmente

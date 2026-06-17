@@ -430,6 +430,143 @@
     .mode-tab:last-child { border-right: none; }
     .mode-tab.active { background: #1a1f2e; color: #00c47a; border-bottom: 2px solid #00c47a; }
     .mode-tab:hover:not(.active) { color: #c8d0e0; background: #161b27; }
+
+    /* ── FICHA DO CLIENTE ── */
+    .ficha-search {
+        padding: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .ficha-card {
+        background: #141923;
+        border: 1px solid #22304a;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .ficha-header {
+        background: #0e1117;
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border-bottom: 1px solid #22304a;
+    }
+    .ficha-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #1a2a1a;
+        border: 2px solid #00c47a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: #00c47a;
+        flex-shrink: 0;
+        font-family: sans-serif;
+        font-weight: 700;
+    }
+    .ficha-header-info { flex: 1; min-width: 0; }
+    .ficha-nome {
+        font-family: sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .ficha-sub {
+        font-size: 11px;
+        color: #5a6480;
+        margin-top: 2px;
+        font-family: monospace;
+    }
+    .ficha-status-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+        font-family: monospace;
+        flex-shrink: 0;
+    }
+    .ficha-status-badge.ativo { background: #0d2e1a; color: #00c47a; border: 1px solid #00c47a; }
+    .ficha-status-badge.bloqueado { background: #2e0d0d; color: #e74c3c; border: 1px solid #e74c3c; }
+    .ficha-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+    }
+    .ficha-section {
+        padding: 16px 20px;
+        border-bottom: 1px solid #1a2030;
+    }
+    .ficha-section:nth-child(odd) { border-right: 1px solid #1a2030; }
+    .ficha-section.full {
+        grid-column: 1 / -1;
+        border-right: none;
+    }
+    .ficha-section-title {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: #3a4565;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        font-family: monospace;
+    }
+    .ficha-row {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 8px;
+    }
+    .ficha-row:last-child { margin-bottom: 0; }
+    .ficha-label {
+        font-size: 9px;
+        color: #3a4565;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        font-family: monospace;
+        margin-bottom: 2px;
+    }
+    .ficha-value {
+        font-size: 13px;
+        color: #c8d0e0;
+        font-family: monospace;
+        word-break: break-word;
+    }
+    .ficha-value.highlight { color: #00c47a; font-weight: 700; font-size: 15px; }
+    .ficha-value.muted { color: #3a4565; font-style: italic; }
+    .ficha-extras {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .ficha-extra-item {
+        background: #0e1117;
+        border: 1px solid #1a2030;
+        border-radius: 4px;
+        padding: 6px 10px;
+        min-width: 160px;
+        flex: 1;
+    }
+    .ficha-extra-label {
+        font-size: 9px;
+        color: #3a4565;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        font-family: monospace;
+        margin-bottom: 2px;
+    }
+    .ficha-extra-value {
+        font-size: 12px;
+        color: #8a95b0;
+        font-family: monospace;
+        word-break: break-word;
+    }
 </style>
 </head>
 <body>
@@ -447,7 +584,7 @@
     <div class="ob-card">
         <div class="ob-title">
             <div class="badge">EspacoNet</div>
-            <h2>Filtro OLT</h2>
+            <h2>Filtro Clientes ADA</h2>
         </div>
         <p class="ob-subtitle">Siga os passos abaixo para configurar o servidor local</p>
 
@@ -469,7 +606,7 @@
                 <h3>Abrir o PowerShell e colar</h3>
                 <p>Pressione <strong style="color:#fff">Win+R</strong>, digite <strong style="color:#00c47a">powershell</strong> e pressione Enter.</p>
                 <p>Na janela que abrir, cole o comando com <strong style="color:#fff">Ctrl+V</strong> e pressione Enter.</p>
-                <p>Uma janela do servidor vai aparecer — deixe-a aberta enquanto usar o Filtro OLT.</p>
+                <p>Uma janela do servidor vai aparecer — deixe-a aberta enquanto usar o Filtro Clientes ADA.</p>
                 <small>Requisito: estar conectado a VPN da empresa.</small>
             </div>
         </div>
@@ -506,6 +643,8 @@
         <button class="mode-tab active" id="tab-olt">MODO OLT / PuTTY</button>
         <button class="mode-tab" id="tab-pppoe">MODO LISTA PPPoE</button>
         <button class="mode-tab" id="tab-telefone">BUSCA POR TELEFONE</button>
+        <button class="mode-tab" id="tab-endereco">BUSCA POR ENDEREÇO</button>
+        <button class="mode-tab" id="tab-ficha">FICHA DO CLIENTE</button>
     </div>
 
     <!-- TEXTAREAS OLT -->
@@ -541,6 +680,33 @@
                 <button class="btn btn-primary" id="btn-buscar-telefone">BUSCAR</button>
             </div>
         </div>
+    </div>
+
+    <!-- BUSCA ENDEREÇO -->
+    <div id="area-endereco" style="display:none">
+        <div class="input-block" style="margin-bottom:14px">
+            <div class="input-label">BUSCA POR ENDEREÇO <span>endereço, bairro, referência, cidade ou CEP</span></div>
+            <div style="padding:12px;display:flex;gap:8px;align-items:center">
+                <input type="text" class="proxy-input" id="endereco-input"
+                       placeholder="Ex: Casa Azul, Centro, 69000-000..."
+                       style="flex:1;max-width:400px">
+                <button class="btn btn-primary" id="btn-buscar-endereco">BUSCAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FICHA DO CLIENTE -->
+    <div id="area-ficha" style="display:none">
+        <div class="input-block" style="margin-bottom:14px">
+            <div class="input-label">FICHA DO CLIENTE <span>busca por número de contrato</span></div>
+            <div class="ficha-search">
+                <input type="text" class="proxy-input" id="ficha-input"
+                       placeholder="Digite o número do contrato..."
+                       style="flex:1;max-width:340px">
+                <button class="btn btn-primary" id="btn-buscar-ficha">BUSCAR</button>
+            </div>
+        </div>
+        <div id="ficha-result"></div>
     </div>
 
     <!-- ACTIONS -->
@@ -788,15 +954,28 @@
         document.getElementById('tab-olt').classList.toggle('active', modo === 'olt');
         document.getElementById('tab-pppoe').classList.toggle('active', modo === 'pppoe');
         document.getElementById('tab-telefone').classList.toggle('active', modo === 'telefone');
+        document.getElementById('tab-endereco').classList.toggle('active', modo === 'endereco');
+        document.getElementById('tab-ficha').classList.toggle('active', modo === 'ficha');
         document.getElementById('area-olt').style.display = modo === 'olt' ? '' : 'none';
         document.getElementById('area-pppoe').style.display = modo === 'pppoe' ? '' : 'none';
         document.getElementById('area-telefone').style.display = modo === 'telefone' ? '' : 'none';
-        document.getElementById('btn-processar').style.display = modo === 'telefone' ? 'none' : '';
+        document.getElementById('area-endereco').style.display = modo === 'endereco' ? '' : 'none';
+        document.getElementById('area-ficha').style.display = modo === 'ficha' ? '' : 'none';
+        const esconderProcessar = modo === 'telefone' || modo === 'endereco' || modo === 'ficha';
+        document.getElementById('btn-processar').style.display = esconderProcessar ? 'none' : '';
+        if (modo === 'ficha') {
+            document.getElementById('result-area').style.display = 'none';
+            document.getElementById('log-panel').style.display = 'none';
+        } else {
+            document.getElementById('result-area').style.display = '';
+        }
     }
 
     document.getElementById('tab-olt').addEventListener('click', () => setModo('olt'));
     document.getElementById('tab-pppoe').addEventListener('click', () => setModo('pppoe'));
     document.getElementById('tab-telefone').addEventListener('click', () => setModo('telefone'));
+    document.getElementById('tab-endereco').addEventListener('click', () => setModo('endereco'));
+    document.getElementById('tab-ficha').addEventListener('click', () => setModo('ficha'));
 
     // ── LOG ──
     const logs = [];
@@ -977,6 +1156,7 @@
                 bairro: r.BairroInst || '',
                 cidade: r.CidadeInst || '',
                 pontoRef: r.PontoRefInst || '',
+                cep: r.CepInst || '',
                 grupo: r.GrupoAutenticacao || '',
                 bloqueado: r.GrupoAutenticacao && r.GrupoAutenticacao.toUpperCase().includes('BLOQUEADO'),
                 telefonePrincipal: r.TelefonePrincipal || '',
@@ -1017,13 +1197,18 @@
         }
 
         const resumo = getResumoResultados();
-        const emPPPoE = modoAtual === 'pppoe' || modoAtual === 'telefone';
+        const emPPPoE = modoAtual === 'pppoe' || modoAtual === 'telefone' || modoAtual === 'endereco';
         const emTelefone = modoAtual === 'telefone';
+        const emEndereco = modoAtual === 'endereco';
 
         const rows = resultados.map((r, i) => {
             if (emPPPoE) {
-                const addrContent = r.enderecoFinal
-                    ? esc(r.enderecoFinal) + (r.pontoRef ? '<br><small style="color:#3a4565">Ref: ' + esc(r.pontoRef) + '</small>' : '')
+                const addrParts = r.enderecoFinal ? esc(r.enderecoFinal) : null;
+                const addrExtra = emEndereco
+                    ? [r.pontoRef ? 'Ref: ' + esc(r.pontoRef) : '', r.cep ? 'CEP: ' + esc(r.cep) : ''].filter(Boolean).map(s => `<small style="color:#3a4565">${s}</small>`).join(' &nbsp;')
+                    : (r.pontoRef ? '<small style="color:#3a4565">Ref: ' + esc(r.pontoRef) + '</small>' : '');
+                const addrContent = addrParts
+                    ? addrParts + (addrExtra ? '<br>' + addrExtra : '')
                     : 'buscando...';
                 const addrClass = r.enderecoFinal ? 'td-end td-ok' : 'td-end td-loading';
                 const telCell = emTelefone
@@ -1058,7 +1243,9 @@
             ? `<th>#</th><th>CONTRATO</th><th>NOME</th>${emTelefone ? '<th>TELEFONE</th>' : ''}<th>ENDEREÇO</th><th></th>`
             : '<th>ONU</th><th>STATUS</th><th>CONTRATO</th><th>NOME</th><th>ENDEREÇO</th><th></th>';
 
-        const titulo = modoAtual === 'telefone' ? 'CLIENTES ENCONTRADOS' : (emPPPoE ? 'CLIENTES' : 'ONUs INATIVAS');
+        const titulo = modoAtual === 'telefone' ? 'CLIENTES ENCONTRADOS'
+            : modoAtual === 'endereco' ? 'CLIENTES ENCONTRADOS'
+            : (emPPPoE ? 'CLIENTES' : 'ONUs INATIVAS');
 
         const summaryPills = emPPPoE
             ? `<div class="summary-pill">${resultados.length} clientes</div>
@@ -1349,6 +1536,295 @@
         if (e.key === 'Enter') buscarPorTelefone();
     });
 
+    let buscaEnderecoAtiva = false;
+
+    async function buscarPorEndereco() {
+        if (buscaEnderecoAtiva) {
+            buscaEnderecoAtiva = false;
+            document.getElementById('btn-buscar-endereco').textContent = 'BUSCAR';
+            return;
+        }
+
+        const termoRaw = document.getElementById('endereco-input').value.trim();
+        const termoBusca = termoRaw.toLowerCase();
+
+        if (termoBusca.length < 2) {
+            mostrarAlerta('Digite ao menos 2 caracteres para buscar.');
+            return;
+        }
+
+        const proxy = getProxyUrl();
+        if (!proxy) {
+            mostrarAlerta('Configure a URL do proxy antes de processar.');
+            return;
+        }
+
+        const proxyOk = await testarProxySilencioso(true);
+        if (!proxyOk) return;
+
+        esconderAlerta();
+        buscaEnderecoAtiva = true;
+        document.getElementById('btn-buscar-endereco').textContent = 'PARAR';
+        document.getElementById('log-panel').style.display = 'block';
+        document.getElementById('stats').style.display = 'none';
+        resultados = [];
+
+        const progEl = document.getElementById('progress');
+        const progTxt = document.getElementById('progress-txt');
+        const progFill = document.getElementById('progress-fill');
+        progEl.style.display = 'block';
+        progFill.style.width = '0%';
+
+        log('INFO', `[endereço] coletando lista de clientes...`);
+        const allClients = [];
+        const pageSize = 200;
+        let start = 0;
+
+        try {
+            while (true) {
+                progTxt.textContent = `Coletando lista: ${allClients.length} clientes...`;
+                const params = new URLSearchParams({ sSearch: '', iDisplayStart: start, iDisplayLength: pageSize });
+                const json = await fetchJson(`${proxy}/clientes?${params}`);
+                for (const row of (json.aaData || [])) {
+                    const mId = String(row[5] || '').match(/data-id="(\d+)"/i);
+                    if (mId) {
+                        allClients.push({
+                            idCliente: mId[1],
+                            contrato: String(row[0] || '').trim(),
+                            nome: String(row[1] || '').trim()
+                        });
+                    }
+                }
+                if (!json.aaData || json.aaData.length < pageSize) break;
+                start += pageSize;
+            }
+        } catch (e) {
+            log('ERR', `[endereço] erro ao coletar clientes: ${e.message}`);
+            mostrarAlerta(`Erro ao coletar clientes: ${e.message}`);
+            buscaEnderecoAtiva = false;
+            document.getElementById('btn-buscar-endereco').textContent = 'BUSCAR';
+            progEl.style.display = 'none';
+            return;
+        }
+
+        log('INFO', `[endereço] ${allClients.length} clientes na base. Varrendo por "${termoRaw}"...`);
+        document.getElementById('result-area').innerHTML = '<div class="empty">Varrendo cadastros...</div>';
+
+        const encontrados = [];
+        const fila = allClients.slice();
+        let processados = 0;
+        const CONCORRENCIA = 8;
+
+        const workers = Array.from({ length: Math.min(CONCORRENCIA, fila.length) }, async () => {
+            while (fila.length && buscaEnderecoAtiva) {
+                const client = fila.shift();
+                processados++;
+
+                progTxt.textContent = `Varrendo: ${processados}/${allClients.length} | ${encontrados.length} encontrado(s)`;
+                progFill.style.width = Math.round((processados / allClients.length) * 100) + '%';
+
+                try {
+                    const dados = await buscarDadosCliente(client.idCliente);
+                    const camposBusca = [
+                        dados.endereco,
+                        dados.bairro,
+                        dados.cidade,
+                        dados.pontoRef,
+                        dados.cep
+                    ].filter(Boolean).join(' ').toLowerCase();
+
+                    if (camposBusca.includes(termoBusca)) {
+                        encontrados.push({
+                            num: String(encontrados.length + 1),
+                            serial: '', operStatus: '', motivo: '',
+                            descricao: client.contrato,
+                            contrato: client.contrato,
+                            nome: client.nome,
+                            nomeAda: client.nome,
+                            idCliente: client.idCliente,
+                            telefonePrincipal: dados.telefonePrincipal,
+                            telefoneAlternativo: dados.telefoneAlternativo,
+                            enderecoFinal: dados.endereco !== '-' ? dados.endereco : '',
+                            bairroFinal: dados.bairro || '',
+                            pontoRef: dados.pontoRef || '',
+                            cep: dados.cep || ''
+                        });
+                        resultados = encontrados.slice();
+                        renderTabela();
+                    }
+                } catch (e) { /* continua */ }
+            }
+        });
+
+        await Promise.all(workers);
+
+        buscaEnderecoAtiva = false;
+        document.getElementById('btn-buscar-endereco').textContent = 'BUSCAR';
+
+        if (!encontrados.length) {
+            document.getElementById('result-area').innerHTML = '<div class="empty">Nenhum cliente encontrado com esse endereço.</div>';
+            progEl.style.display = 'none';
+        } else {
+            progTxt.textContent = `Concluído! ${encontrados.length} cliente(s) com "${termoRaw}"`;
+            setTimeout(() => { progEl.style.display = 'none'; }, 3000);
+        }
+
+        log(encontrados.length ? 'OK' : 'WARN', `[endereço] ${encontrados.length} resultado(s) para "${termoRaw}"`);
+    }
+
+    document.getElementById('btn-buscar-endereco').addEventListener('click', buscarPorEndereco);
+    document.getElementById('endereco-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') buscarPorEndereco();
+    });
+
+    // ── FICHA DO CLIENTE ──
+    const CAMPOS_CONHECIDOS = new Set([
+        'EnderecoInst','NumeroInst','BairroInst','CidadeInst','CepInst','PontoRefInst',
+        'GrupoAutenticacao','TelefonePrincipal','TelefoneAlternativo'
+    ]);
+
+    function fichaVal(v) {
+        const s = String(v || '').trim();
+        return s && s !== '0' && s !== 'null' && s !== 'undefined' ? s : '';
+    }
+
+    function fichaRow(label, value, opts) {
+        const val = fichaVal(value);
+        const cls = opts && opts.highlight ? 'ficha-value highlight'
+                  : (!val ? 'ficha-value muted' : 'ficha-value');
+        const display = val || '—';
+        return `<div class="ficha-row">
+            <div class="ficha-label">${label}</div>
+            <div class="${cls}">${esc(display)}</div>
+        </div>`;
+    }
+
+    function renderFichaCliente(contrato, idCliente, nomeAda, cpf, raw) {
+        const fichaArea = document.getElementById('ficha-result');
+
+        const nome = fichaVal(nomeAda) || fichaVal(raw && raw.Nome) || '—';
+        const inicial = nome !== '—' ? nome.trim()[0].toUpperCase() : '?';
+
+        const bloqueado = raw && raw.GrupoAutenticacao
+            && String(raw.GrupoAutenticacao).toUpperCase().includes('BLOQUEADO');
+
+        const statusBadge = bloqueado
+            ? '<span class="ficha-status-badge bloqueado">BLOQUEADO</span>'
+            : '<span class="ficha-status-badge ativo">ATIVO</span>';
+
+        const endParts = raw ? [raw.EnderecoInst, raw.NumeroInst].filter(fichaVal) : [];
+        const endRua = endParts.join(', ');
+
+        // Campos extras: tudo que vier da API além dos conhecidos
+        const extras = raw ? Object.entries(raw).filter(([k, v]) => {
+            if (CAMPOS_CONHECIDOS.has(k)) return false;
+            const s = fichaVal(v);
+            return s.length > 0;
+        }) : [];
+
+        const extrasHtml = extras.length ? `
+            <div class="ficha-section full">
+                <div class="ficha-section-title">Outros dados do sistema</div>
+                <div class="ficha-extras">
+                    ${extras.map(([k, v]) => `
+                    <div class="ficha-extra-item">
+                        <div class="ficha-extra-label">${esc(k)}</div>
+                        <div class="ficha-extra-value">${esc(String(v))}</div>
+                    </div>`).join('')}
+                </div>
+            </div>` : '';
+
+        fichaArea.innerHTML = `
+        <div class="ficha-card">
+            <div class="ficha-header">
+                <div class="ficha-avatar">${esc(inicial)}</div>
+                <div class="ficha-header-info">
+                    <div class="ficha-nome">${esc(nome)}</div>
+                    <div class="ficha-sub">Contrato ${esc(contrato)} &nbsp;·&nbsp; ID ${esc(String(idCliente))}</div>
+                </div>
+                ${statusBadge}
+            </div>
+            <div class="ficha-body">
+                <div class="ficha-section">
+                    <div class="ficha-section-title">Identificação</div>
+                    ${fichaRow('Contrato', contrato, { highlight: true })}
+                    ${fichaRow('CPF', cpf)}
+                    ${fichaRow('ID Cliente', idCliente)}
+                </div>
+                <div class="ficha-section">
+                    <div class="ficha-section-title">Acesso</div>
+                    ${fichaRow('Grupo de autenticação', raw && raw.GrupoAutenticacao)}
+                    ${fichaRow('Status', bloqueado ? 'Bloqueado' : 'Ativo')}
+                </div>
+                <div class="ficha-section">
+                    <div class="ficha-section-title">Endereço</div>
+                    ${fichaRow('Logradouro', endRua)}
+                    ${fichaRow('Bairro', raw && raw.BairroInst)}
+                    ${fichaRow('Cidade', raw && raw.CidadeInst)}
+                    ${fichaRow('CEP', raw && raw.CepInst)}
+                    ${fichaRow('Referência', raw && raw.PontoRefInst)}
+                </div>
+                <div class="ficha-section">
+                    <div class="ficha-section-title">Contato</div>
+                    ${fichaRow('Telefone principal', raw && raw.TelefonePrincipal)}
+                    ${fichaRow('Telefone alternativo', raw && raw.TelefoneAlternativo)}
+                </div>
+                ${extrasHtml}
+            </div>
+        </div>`;
+    }
+
+    async function buscarFichaCliente() {
+        const contrato = document.getElementById('ficha-input').value.trim();
+        if (!contrato) {
+            mostrarAlerta('Digite o número do contrato.');
+            return;
+        }
+
+        const proxy = getProxyUrl();
+        if (!proxy) {
+            mostrarAlerta('Configure a URL do proxy antes de processar.');
+            return;
+        }
+
+        const proxyOk = await testarProxySilencioso(true);
+        if (!proxyOk) return;
+
+        esconderAlerta();
+        const fichaArea = document.getElementById('ficha-result');
+        fichaArea.innerHTML = '<div class="empty">Buscando dados do cliente...</div>';
+
+        log('INFO', `[ficha] buscando contrato "${contrato}"...`);
+
+        const { idCliente, nomeAda, cpf } = await buscarIdCliente(contrato);
+
+        if (!idCliente) {
+            fichaArea.innerHTML = `<div class="empty">Contrato "${esc(contrato)}" não encontrado no sistema.</div>`;
+            return;
+        }
+
+        log('INFO', `[ficha] IdCliente=${idCliente}. Buscando cadastro completo...`);
+
+        try {
+            const raw = await fetchJson(`${proxy}/cadastro`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `call=carregarClienteAction&IdCliente=${encodeURIComponent(idCliente)}`
+            });
+
+            log('OK', `[ficha] dados recebidos para IdCliente=${idCliente}`);
+            renderFichaCliente(contrato, idCliente, nomeAda, cpf, raw);
+        } catch (e) {
+            log('ERR', `[ficha] falha: ${e.message}`);
+            fichaArea.innerHTML = '<div class="empty">Erro ao buscar dados do cliente.</div>';
+        }
+    }
+
+    document.getElementById('btn-buscar-ficha').addEventListener('click', buscarFichaCliente);
+    document.getElementById('ficha-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') buscarFichaCliente();
+    });
+
     document.getElementById('btn-processar').addEventListener('click', async () => {
         if (modoAtual === 'pppoe') {
             const textoPPPoE = document.getElementById('pppoe-lista').value.trim();
@@ -1535,7 +2011,7 @@
         const ctx = canvas.getContext('2d');
         const margem = 48;
         const largura = 1600;
-        const emPPPoE = modoAtual === 'pppoe';
+        const emPPPoE = modoAtual === 'pppoe' || modoAtual === 'telefone' || modoAtual === 'endereco';
 
         const colunas = emPPPoE ? [
             { titulo: '#', x: 0, largura: 60 },
@@ -1655,15 +2131,16 @@
     function exportarCSV() {
         if (resultados.length === 0) return;
         let header, rows;
-        if (modoAtual === 'pppoe') {
-            header = ['#', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
+        if (modoAtual === 'pppoe' || modoAtual === 'telefone' || modoAtual === 'endereco') {
+            header = ['#', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência', 'CEP'];
             rows = resultados.map(r => [
                 r.num,
                 r.contrato || '',
                 r.nomeAda || r.nome || '',
                 r.enderecoFinal || '',
                 r.bairroFinal || '',
-                r.pontoRef || ''
+                r.pontoRef || '',
+                r.cep || ''
             ]);
         } else {
             header = ['ONU', 'Serial', 'Status', 'Contrato', 'Nome', 'Endereço', 'Bairro', 'Referência'];
@@ -1678,7 +2155,7 @@
         }
         const csv = [header, ...rows].map(row => row.map(c => `"${(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-        const prefixo = modoAtual === 'pppoe' ? 'clientes' : 'onus_inativas';
+        const prefixo = (modoAtual === 'pppoe' || modoAtual === 'telefone' || modoAtual === 'endereco') ? 'clientes' : 'onus_inativas';
         baixarBlob(blob, `${prefixo}_${new Date().toISOString().slice(0, 10)}.csv`);
     }
 
@@ -1688,7 +2165,7 @@
 
         const data = new Date().toLocaleDateString('pt-BR');
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const emPPPoE = modoAtual === 'pppoe';
+        const emPPPoE = modoAtual === 'pppoe' || modoAtual === 'telefone' || modoAtual === 'endereco';
 
         const linhas = resultados.map((r, i) => {
             const contrato = r.contrato || '—';
@@ -1754,8 +2231,8 @@
             ? `<strong style="color:#1a6b3a">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong>`
             : `<strong style="color:#c0392b">${resultados.length} cliente${resultados.length !== 1 ? 's' : ''}</strong> sem sinal`;
         const rodapePDF = emPPPoE
-            ? `<span>Filtro OLT — ISP Field Tool</span>`
-            : `<span>Filtro OLT — ISP Field Tool</span><span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>`;
+            ? `<span>Filtro Clientes ADA — ISP Field Tool</span>`
+            : `<span>Filtro Clientes ADA — ISP Field Tool</span><span>${dgiCount} DGI · ${loamiCount} LOAMI/LOFI</span>`;
 
         const html = `<!DOCTYPE html>
 <html lang="pt-BR">

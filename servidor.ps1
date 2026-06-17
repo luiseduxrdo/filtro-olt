@@ -67,11 +67,11 @@ try {
 
 Write-Host ''
 Write-Host '  ============================================' -ForegroundColor DarkCyan
-Write-Host '    Filtro OLT - Servidor Local' -ForegroundColor Cyan
+Write-Host '    Filtro Clientes ADA - Servidor Local' -ForegroundColor Cyan
 Write-Host '  ============================================' -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host "  Servidor ativo em http://localhost:${port}" -ForegroundColor Green
-Write-Host '  Deixe esta janela aberta enquanto usar o Filtro OLT.' -ForegroundColor DarkGray
+Write-Host '  Deixe esta janela aberta enquanto usar o Filtro Clientes ADA.' -ForegroundColor DarkGray
 Write-Host '  Pressione Ctrl+C para encerrar.' -ForegroundColor DarkGray
 Write-Host ''
 
