@@ -19,15 +19,19 @@ function Read-ResponseBody($response) {
     }
 }
 
-function Invoke-AdaRequest($url, $method = 'GET', $body = $null, $contentType = $null) {
+function Invoke-AdaRequest($url, $method = 'GET', $body = $null, $contentType = $null, $cookie = $null) {
     $req = [System.Net.HttpWebRequest]::Create($url)
     $req.Method = $method
     $req.AllowAutoRedirect = $false
     $req.Proxy = $null
-    $req.UserAgent = 'Filtro-OLT-Proxy/1.0'
+    $req.UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
     if ($contentType) {
         $req.ContentType = $contentType
+    }
+
+    if ($cookie) {
+        $req.Headers.Add('Cookie', $cookie)
     }
 
     if ($body -ne $null) {
@@ -112,6 +116,13 @@ while ($listener.IsListening) {
             $postData = $reader.ReadToEnd()
             $reader.Close()
             $body = Invoke-AdaRequest ($adaBase + 'controller/ClienteController.php') 'POST' $postData 'application/x-www-form-urlencoded'
+        }
+        elseif ($path -eq '/acao') {
+            $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+            $postData = $reader.ReadToEnd()
+            $reader.Close()
+            $adaCookie = $req.Headers['X-Ada-Cookie']
+            $body = Invoke-AdaRequest ($adaBase + 'controller/ClienteController.php') 'POST' $postData 'application/x-www-form-urlencoded' $adaCookie
         }
         else {
             $res.StatusCode = 404

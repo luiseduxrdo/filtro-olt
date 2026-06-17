@@ -567,6 +567,101 @@
         font-family: monospace;
         word-break: break-word;
     }
+    .ficha-session-config {
+        padding: 10px 12px;
+        background: #0e1117;
+        border: 1px solid #1a2030;
+        border-radius: 4px;
+        margin: 0 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .ficha-session-config label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #3a4565;
+        letter-spacing: 1px;
+        font-family: monospace;
+        white-space: nowrap;
+    }
+    .ficha-session-config input {
+        flex: 1;
+        min-width: 220px;
+        font-size: 11px;
+        font-family: monospace;
+    }
+    .ficha-session-config small {
+        font-size: 10px;
+        color: #3a4565;
+        font-family: sans-serif;
+    }
+    .ficha-footer {
+        padding: 14px 20px;
+        border-top: 1px solid #1a2030;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: #0e1117;
+    }
+    .btn-ficha-bloquear {
+        background: #2e0d0d;
+        color: #e74c3c;
+        border: 1px solid #e74c3c;
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 7px 16px;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        transition: all 0.15s;
+    }
+    .btn-ficha-bloquear:hover { background: #3d1010; }
+    .btn-ficha-liberar {
+        background: #0d2e1a;
+        color: #00c47a;
+        border: 1px solid #00c47a;
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 7px 16px;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        transition: all 0.15s;
+    }
+    .btn-ficha-liberar:hover { background: #10392a; }
+    .btn-ficha-refresh {
+        background: transparent;
+        color: #5a6480;
+        border: 1px solid #252b3b;
+        font-family: monospace;
+        font-size: 11px;
+        padding: 7px 14px;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-ficha-refresh:hover { color: #c8d0e0; border-color: #3a4565; }
+    .ficha-date-input {
+        background: #0e1117;
+        border: 1px solid #252b3b;
+        color: #c8d0e0;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 3px;
+    }
+    .ficha-date-input:focus { outline: none; border-color: #00c47a; }
+    .ficha-footer-label {
+        font-size: 10px;
+        color: #3a4565;
+        font-family: monospace;
+        letter-spacing: 0.5px;
+    }
 </style>
 </head>
 <body>
@@ -704,6 +799,12 @@
                        placeholder="Digite o número do contrato..."
                        style="flex:1;max-width:340px">
                 <button class="btn btn-primary" id="btn-buscar-ficha">BUSCAR</button>
+            </div>
+            <div class="ficha-session-config">
+                <label>SESSÃO ADA</label>
+                <input type="text" class="proxy-input" id="ada-session-input"
+                       placeholder="AdaProviderUsername=...; PHPSESSID=...">
+                <small>Necessário para bloquear / liberar — DevTools → Application → Cookies</small>
             </div>
         </div>
         <div id="ficha-result"></div>
@@ -1677,10 +1778,25 @@
         if (e.key === 'Enter') buscarPorEndereco();
     });
 
+    // ── SESSÃO ADA ──
+    const adaSessionInput = document.getElementById('ada-session-input');
+    adaSessionInput.value = localStorage.getItem('ada-session') || '';
+    adaSessionInput.addEventListener('input', () => {
+        localStorage.setItem('ada-session', adaSessionInput.value.trim());
+    });
+
+    function getAdaCookie() {
+        return adaSessionInput.value.trim();
+    }
+
     // ── FICHA DO CLIENTE ──
+    let fichaRawData = null;
+    let fichaContratoAtual = null;
+
     const CAMPOS_CONHECIDOS = new Set([
         'EnderecoInst','NumeroInst','BairroInst','CidadeInst','CepInst','PontoRefInst',
-        'GrupoAutenticacao','TelefonePrincipal','TelefoneAlternativo'
+        'GrupoAutenticacao','GrupoAutenticacaoOriginal','DtBloqueio',
+        'TelefonePrincipal','TelefoneAlternativo'
     ]);
 
     function fichaVal(v) {
@@ -1734,6 +1850,19 @@
                 </div>
             </div>` : '';
 
+        const hoje = new Date().toISOString().slice(0, 10);
+        const footerHtml = bloqueado ? `
+            <div class="ficha-footer">
+                <span class="ficha-footer-label">LIBERAR ATÉ:</span>
+                <input type="date" class="ficha-date-input" id="ficha-data-lib" min="${hoje}" value="${hoje}">
+                <button class="btn-ficha-liberar" id="btn-ficha-liberar-acao">LIBERAR ATÉ ESTA DATA</button>
+                <button class="btn-ficha-refresh" id="btn-ficha-refresh">↻ Atualizar</button>
+            </div>` : `
+            <div class="ficha-footer">
+                <button class="btn-ficha-bloquear" id="btn-ficha-bloquear-acao">BLOQUEAR CLIENTE</button>
+                <button class="btn-ficha-refresh" id="btn-ficha-refresh">↻ Atualizar</button>
+            </div>`;
+
         fichaArea.innerHTML = `
         <div class="ficha-card">
             <div class="ficha-header">
@@ -1755,6 +1884,8 @@
                     <div class="ficha-section-title">Acesso</div>
                     ${fichaRow('Grupo de autenticação', raw && raw.GrupoAutenticacao)}
                     ${fichaRow('Status', bloqueado ? 'Bloqueado' : 'Ativo')}
+                    ${fichaRow('Plano original', raw && raw.GrupoAutenticacaoOriginal)}
+                    ${fichaRow('Data de bloqueio', raw && raw.DtBloqueio)}
                 </div>
                 <div class="ficha-section">
                     <div class="ficha-section-title">Endereço</div>
@@ -1771,7 +1902,98 @@
                 </div>
                 ${extrasHtml}
             </div>
+            ${footerHtml}
         </div>`;
+
+        const btnRefresh = document.getElementById('btn-ficha-refresh');
+        if (btnRefresh) btnRefresh.addEventListener('click', buscarFichaCliente);
+
+        const btnBloquear = document.getElementById('btn-ficha-bloquear-acao');
+        if (btnBloquear) btnBloquear.addEventListener('click', () => bloquearCliente(idCliente, raw));
+
+        const btnLiberar = document.getElementById('btn-ficha-liberar-acao');
+        if (btnLiberar) btnLiberar.addEventListener('click', () => {
+            const dataIso = document.getElementById('ficha-data-lib').value;
+            if (!dataIso) { mostrarAlerta('Selecione uma data de liberação.'); return; }
+            liberarClienteAteData(idCliente, dataIso);
+        });
+    }
+
+    async function chamarAcaoAda(payload) {
+        const proxy = getProxyUrl();
+        const cookie = getAdaCookie();
+        if (!cookie) {
+            mostrarAlerta('Informe a sessão ADA antes de executar esta ação.');
+            return null;
+        }
+        return await fetchJson(`${proxy}/acao`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Ada-Cookie': cookie
+            },
+            body: new URLSearchParams(payload).toString()
+        });
+    }
+
+    async function bloquearCliente(idCliente, raw) {
+        if (!confirm('Confirma o bloqueio deste cliente?')) return;
+        log('INFO', `[ficha] bloqueando IdCliente=${idCliente}...`);
+
+        const payload = {
+            call: 'alterarClienteAction',
+            IdCliente: raw.IdCliente,
+            IdPlano: raw.IdPlano || 1,
+            Nome: raw.Nome || '',
+            NumeroContrato: raw.NumeroContrato || '',
+            CpfCnpj: raw.CpfCnpj || '',
+            Email: raw.Email || '',
+            TelefonePrincipal: raw.TelefonePrincipal || '',
+            TelefoneAlternativo: raw.TelefoneAlternativo || '',
+            EnderecoInst: raw.EnderecoInst || '',
+            BairroInst: raw.BairroInst || '',
+            CepInst: raw.CepInst || '',
+            PontoRefInst: raw.PontoRefInst || '',
+            EnderecoCob: raw.EnderecoCob || '',
+            BairroCob: raw.BairroCob || '',
+            CepCob: raw.CepCob || '',
+            CidadeCob: raw.CidadeCob || '',
+            PontoRefCob: raw.PontoRefCob || '',
+            DiaVencimento: raw.DiaVencimento || 30,
+            ValorMensalidade: raw.ValorMensalidade || '',
+            Username: raw.Username || '',
+            Senha: raw.Senha || '',
+            MacAddress: raw.MacAddress || '',
+            MaximoDownload: raw.MaximoDownload || '',
+            MaximoUpload: raw.MaximoUpload || '',
+            Obs: raw.Obs || '',
+            GrupoAutenticacao: 'BLOQUEADO'
+        };
+
+        const result = await chamarAcaoAda(payload);
+        if (result !== null) {
+            log('OK', `[ficha] resposta do bloqueio: ${JSON.stringify(result)}`);
+            await buscarFichaCliente();
+        }
+    }
+
+    async function liberarClienteAteData(idCliente, dataIso) {
+        const partes = dataIso.split('-');
+        const dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        if (!confirm(`Confirma liberação até ${dataFormatada}?`)) return;
+        log('INFO', `[ficha] liberando IdCliente=${idCliente} até ${dataFormatada}...`);
+
+        const payload = {
+            call: 'liberarAcessoDataAction',
+            IdCliente: idCliente,
+            DtLiberadoBloqueio: dataFormatada
+        };
+
+        const result = await chamarAcaoAda(payload);
+        if (result !== null) {
+            log('OK', `[ficha] resposta da liberação: ${JSON.stringify(result)}`);
+            await buscarFichaCliente();
+        }
     }
 
     async function buscarFichaCliente() {
@@ -1812,7 +2034,10 @@
                 body: `call=carregarClienteAction&IdCliente=${encodeURIComponent(idCliente)}`
             });
 
+            fichaRawData = raw;
+            fichaContratoAtual = contrato;
             log('OK', `[ficha] dados recebidos para IdCliente=${idCliente}`);
+            document.getElementById('log-panel').style.display = 'block';
             renderFichaCliente(contrato, idCliente, nomeAda, cpf, raw);
         } catch (e) {
             log('ERR', `[ficha] falha: ${e.message}`);
