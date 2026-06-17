@@ -801,10 +801,13 @@
                 <button class="btn btn-primary" id="btn-buscar-ficha">BUSCAR</button>
             </div>
             <div class="ficha-session-config">
-                <label>SESSÃO ADA</label>
-                <input type="text" class="proxy-input" id="ada-session-input"
-                       placeholder="AdaProviderUsername=...; PHPSESSID=...">
-                <small>Necessário para bloquear / liberar — DevTools → Application → Cookies</small>
+                <label>ADA</label>
+                <input type="text" class="proxy-input" id="ada-user-input"
+                       placeholder="Usuário" style="max-width:130px">
+                <input type="password" class="proxy-input" id="ada-pass-input"
+                       placeholder="Senha" style="max-width:130px">
+                <button class="btn btn-primary btn-sm" id="btn-ada-login">ENTRAR</button>
+                <div id="ada-auth-status" style="font-size:11px;font-family:monospace;color:#3a4565">não autenticado</div>
             </div>
         </div>
         <div id="ficha-result"></div>
@@ -1778,16 +1781,44 @@
         if (e.key === 'Enter') buscarPorEndereco();
     });
 
-    // ── SESSÃO ADA ──
-    const adaSessionInput = document.getElementById('ada-session-input');
-    adaSessionInput.value = localStorage.getItem('ada-session') || '';
-    adaSessionInput.addEventListener('input', () => {
-        localStorage.setItem('ada-session', adaSessionInput.value.trim());
-    });
+    // ── AUTENTICAÇÃO ADA ──
+    const adaUserInput = document.getElementById('ada-user-input');
+    adaUserInput.value = localStorage.getItem('ada-auth-user') || '';
 
-    function getAdaCookie() {
-        return adaSessionInput.value.trim();
+    function setAdaAuthStatus(ok, msg) {
+        const el = document.getElementById('ada-auth-status');
+        el.textContent = msg;
+        el.style.color = ok === true ? '#00c47a' : ok === false ? '#e74c3c' : '#3a4565';
     }
+
+    async function loginAda() {
+        const user = adaUserInput.value.trim();
+        const pass = document.getElementById('ada-pass-input').value;
+        if (!user || !pass) { mostrarAlerta('Informe usuário e senha do ADA.'); return; }
+        const proxy = getProxyUrl();
+        if (!proxy) { mostrarAlerta('Configure a URL do proxy primeiro.'); return; }
+        setAdaAuthStatus(null, 'autenticando...');
+        try {
+            const result = await fetchJson(`${proxy}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `username=${encodeURIComponent(user)}&pws=${encodeURIComponent(pass)}`
+            });
+            if (result && result.status === 'ok') {
+                setAdaAuthStatus(true, `✓ ${result.username}`);
+                localStorage.setItem('ada-auth-user', user);
+            } else {
+                setAdaAuthStatus(false, (result && result.message) || 'erro');
+            }
+        } catch (e) {
+            setAdaAuthStatus(false, 'erro: ' + e.message);
+        }
+    }
+
+    document.getElementById('btn-ada-login').addEventListener('click', loginAda);
+    document.getElementById('ada-pass-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') loginAda();
+    });
 
     // ── FICHA DO CLIENTE ──
     let fichaRawData = null;
@@ -1921,17 +1952,10 @@
 
     async function chamarAcaoAda(payload) {
         const proxy = getProxyUrl();
-        const cookie = getAdaCookie();
-        if (!cookie) {
-            mostrarAlerta('Informe a sessão ADA antes de executar esta ação.');
-            return null;
-        }
+        if (!proxy) { mostrarAlerta('Configure a URL do proxy primeiro.'); return null; }
         return await fetchJson(`${proxy}/acao`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Ada-Cookie': cookie
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(payload).toString()
         });
     }

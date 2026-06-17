@@ -2,6 +2,7 @@ Add-Type -AssemblyName System.Web
 
 $adaBase = 'http://192.168.111.245/ISP/AdaProvider/'
 $port = 8080
+$script:adaSession = ''
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:${port}/")
 
@@ -17,6 +18,59 @@ function Read-ResponseBody($response) {
         $stream.Close()
         $response.Close()
     }
+}
+
+function Invoke-AdaLogin($username, $pws) {
+    $cc      = New-Object System.Net.CookieContainer
+    $rootUri = New-Object System.Uri('http://192.168.111.245/')
+    $baseUri = New-Object System.Uri($adaBase)
+
+    # GET login page para o servidor criar a sessão PHP
+    $r1 = [System.Net.HttpWebRequest]::Create($adaBase)
+    $r1.Method = 'GET'; $r1.AllowAutoRedirect = $true; $r1.Proxy = $null
+    $r1.CookieContainer = $cc
+    try { [void](Read-ResponseBody $r1.GetResponse()) } catch {}
+
+    # POST credenciais
+    $loginBody = 'call=doLoginAction&username=' + [System.Uri]::EscapeDataString($username) + '&pws=' + [System.Uri]::EscapeDataString($pws)
+    $r2 = [System.Net.HttpWebRequest]::Create($adaBase + 'controller/SecurityController.php')
+    $r2.Method = 'POST'
+    $r2.ContentType = 'application/x-www-form-urlencoded; charset=UTF-8'
+    $r2.AllowAutoRedirect = $false
+    $r2.Proxy = $null
+    $r2.CookieContainer = $cc
+    $r2.Headers.Add('X-Requested-With', 'XMLHttpRequest')
+    $r2.Headers.Add('Referer', $adaBase)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($loginBody)
+    $r2.ContentLength = $bytes.Length
+    $s = $r2.GetRequestStream()
+    try { $s.Write($bytes, 0, $bytes.Length) } finally { $s.Close() }
+
+    $responseBody = ''
+    try {
+        $responseBody = Read-ResponseBody $r2.GetResponse()
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) { $responseBody = Read-ResponseBody $_.Exception.Response }
+    }
+
+    # Extrai PHPSESSID — tenta root e adaBase pois o path varia
+    $phpSessId = ''
+    foreach ($uri in @($rootUri, $baseUri)) {
+        foreach ($c in $cc.GetCookies($uri)) {
+            if ($c.Name -eq 'PHPSESSID') { $phpSessId = $c.Value; break }
+        }
+        if ($phpSessId) { break }
+    }
+
+    if ($phpSessId -and $responseBody -match 'success') {
+        $script:adaSession = "AdaProviderUsername=$username; PHPSESSID=$phpSessId"
+        $ts = [datetime]::Now.ToString('HH:mm:ss')
+        Write-Host "  [$ts] LOGIN OK  usuario=$username  sessao=$phpSessId" -ForegroundColor Green
+        return '{"status":"ok","username":"' + $username + '"}'
+    }
+
+    Write-Host "  LOGIN FALHOU  resposta=$responseBody" -ForegroundColor Yellow
+    return '{"status":"error","message":"Credenciais invalidas ou erro no ADA"}'
 }
 
 function Invoke-AdaRequest($url, $method = 'GET', $body = $null, $contentType = $null, $cookie = $null) {
@@ -117,11 +171,18 @@ while ($listener.IsListening) {
             $reader.Close()
             $body = Invoke-AdaRequest ($adaBase + 'controller/ClienteController.php') 'POST' $postData 'application/x-www-form-urlencoded'
         }
+        elseif ($path -eq '/login') {
+            $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+            $postData = $reader.ReadToEnd()
+            $reader.Close()
+            $qs = [System.Web.HttpUtility]::ParseQueryString($postData)
+            $body = Invoke-AdaLogin $qs['username'] $qs['pws']
+        }
         elseif ($path -eq '/acao') {
             $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
             $postData = $reader.ReadToEnd()
             $reader.Close()
-            $adaCookie = $req.Headers['X-Ada-Cookie']
+            $adaCookie = if ($script:adaSession) { $script:adaSession } else { $req.Headers['X-Ada-Cookie'] }
             $body = Invoke-AdaRequest ($adaBase + 'controller/ClienteController.php') 'POST' $postData 'application/x-www-form-urlencoded' $adaCookie
         }
         else {
